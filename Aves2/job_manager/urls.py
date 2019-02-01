@@ -13,10 +13,18 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
-from django.urls import path, include
+from django.urls import path
+from django.conf.urls import url
 
-from . import views
+from rest_framework.routers import DefaultRouter
+
+from job_manager.views import AvesJobViewSet
+
+
+router = DefaultRouter()
+router.register(r'aves_job', AvesJobViewSet, base_name="aves_job")
 
 urlpatterns = [
-    path('^jobs/', ),
 ]
+
+urlpatterns += router.urls

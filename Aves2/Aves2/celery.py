@@ -4,6 +4,7 @@ from __future__ import absolute_import, unicode_literals
 import os
 from celery import Celery
 from celery.schedules import crontab
+from celery_once import QueueOnce
 
 
 # set the default Django settings module for the 'celery' program.
@@ -24,4 +25,12 @@ app.conf.timezone = 'Asia/Shanghai'
 
 # Add periodic-tasks
 app.conf.beat_schedule = {
+}
+
+app.conf.ONCE = {
+    'backend': 'celery_once.backends.Redis',
+    'settings': {
+        'url': "redis://:foobared@redis-svc.yhb-dev:6379/0",
+        'default_timeout': 60 * 60
+    }
 }

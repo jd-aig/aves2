@@ -67,7 +67,14 @@ class AvesJob(models.Model):
         k8s_workers = []
         self.status = 'STARTING'
         self.save()
+        # get job yaml confs
+        logger.info('Get job yaml confs')
+        # Add K8SWorker obj
+        logger.info('Add K8SWorker obj')
         return k8s_workers
+
+    def update_status(self):
+        pass
 
     class Meta:
         db_table = 'avesjob'
@@ -79,20 +86,29 @@ class K8SWorker(models.Model):
     id = models.AutoField(primary_key=True)
     username = models.CharField(max_length=128, blank=False, null=False, default='')
     avesjob = models.ForeignKey('AvesJob', on_delete=models.CASCADE, blank=False, null=False)
+    # k8s_podname_prefix = <avesjob.merge_id>-<avesrole>
+    k8s_podname_prefix = models.CharField(max_length=256, blank=False, null=False, default='')
     merge_id = models.CharField(max_length=256, blank=False, null=False, default='')
     avesrole = models.CharField(max_length=16, blank=False, null=False, default='worker')
     namespace = models.CharField(max_length=32, blank=False, null=False)
-    k8s_status = models.CharField(blank=True, null=True, default='')
-    worker_json = JSONField(blank=True, null=True, default=json_field())
-    service_json = JSONField(blank=True, null=True, default=json_field())
-    ingress_json = JSONField(blank=True, null=True, default=json_field())
+    k8s_status = models.CharField(max_length=32, blank=True, null=True, default='')
+    worker_json = JSONField(blank=True, null=True, default=json_field_default)
+    service_json = JSONField(blank=True, null=True, default=json_field_default)
+    ingress_json = JSONField(blank=True, null=True, default=json_field_default)
     create_time = models.DateTimeField(auto_now_add=True)
     update_time = models.DateTimeField(auto_now=True)
 
     def start(self):
+        # Create k8s job
+        logger.info('Create k8s worker pod')
+        # update k8s_status
+        logger.info('Update k8s_status')
         pass
 
     def stop(self):
+        # Update k8sworker status
+
+        # Delete k8sworker related k8sresource
         pass
 
     class Meta:
