@@ -73,10 +73,12 @@ def finish_avesjob(self, avesjob_id):
     pass
 
 
-@shared_task(name='k8s_event_process', bind=True)
-def k8s_pod_event_process(self, event_data):
-    """ 处理k8s event
+# @shared_task(name='k8s_event_process', bind=True)
+@celery.task(base=QueueOnce, once={'graceful': True, 'keys': ['key']})
+def k8s_pod_event_process(self, key, event_data):
+    """ 处理k8s pod event
     """
+    print(key)
     print(event_data)
     # TODO1: Get pod_phase from event
 
