@@ -1,0 +1,32 @@
+{
+    "jobId": "mxnetfs",
+    "username": "yanghaibo1",
+    "kind": "Train",
+    "engine": "Mxnet",
+    "packageUri": "/mnt/mfs/lidachao/mxnet/mnist",
+    "image": "ai-image.jd.com/dl/mxnet_python:1.2.0_gpu_cuda8",
+    "logDir": "/mnt/mfs/lidachao/mxnet/mnist/log",
+    "resourceSpec": {
+        "master": {
+            "nvidia.com/gpu": 1,
+            "cpu": 4,
+            "memory": "20Gi",
+            "count": "1",
+            "entryPoint": "python mnist.py"
+        }
+    },
+    "inputSpec": {},
+    "outputSpec": {},
+    "envs": {
+        "LD_LIBRARY_PATH": "/usr/local/cuda/extras/CUPTI/lib64:/usr/local/cuda/lib64:/usr/local/lib:/usr/local/nvidia/lib:/usr/local/nvidia/lib64"
+    },
+    "cluster": "test",
+    "storageMode": {
+        "mode": "Filesystem",
+        "config": {
+            "S3AccessKeyId": "DMF0V3UYUWKO9TVEDZMR",
+            "S3SecretAccessKey": "ZhAwhHJDwbA5rDL9JCBw6pHX4svVPN4w122HIfIv",
+            "S3Endpoint": "11.7.148.163:8080"
+        }
+    }
+}

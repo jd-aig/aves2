@@ -1,0 +1,50 @@
+tf_horovod_ossfile = {
+    "jobId": "tfhorovodossfile",
+    "username": "yanghaibo1",
+    "kind": "Train",
+    "engine": "Horovod",
+    "packageUri": "s3://yanghaibo1/aves2_demo_proj/horovod-tensorflow",
+    "image": "ai-image.jd.com/horovod/horovod0.11-openmpi3.0-tensorflow1.4.0-gpu:latest",
+    "logDir": "/mnt/mfs/lidachao/east/log",
+    "resourceSpec": {
+        "master": {
+            "nvidia.com/gpu": 1,
+            "cpu": 4,
+            "memory": "40Gi",
+            "count": "1",
+            "entryPoint": "python horovod_MPI.py -x HOROVOD_TIMELINE"
+        },
+        "worker": {
+            "nvidia.com/gpu": 1,
+            "cpu": 4,
+            "memory": "20Gi",
+            "count": "5",
+            "entryPoint": "python horovod_MPI.py"
+        }
+    },
+    "inputSpec": {
+        "training_data_path": {
+            "path": "s3://yanghaibo1/dataset/",
+            "filename": ""
+        }
+    },
+    "outputSpec": {
+        "checkpoint_dir": {
+            "path": "s3://yanghaibo1/output/",
+            "filename": ""
+        }
+    },
+    "envs": {
+        "LD_LIBRARY_PATH": "/usr/local/cuda/extras/CUPTI/lib64:/usr/local/cuda/lib64:/usr/local/lib:/usr/local/nvidia/lib:/usr/local/nvidia/lib64",
+        "HOROVOD_TIMELINE": "timeline_horovod.json"
+    },
+    "cluster": "test",
+    "storageMode": {
+        "mode": "OSS_File",
+        "config": {
+            "S3AccessKeyId": "DMF0V3UYUWKO9TVEDZMR",
+            "S3SecretAccessKey": "ZhAwhHJDwbA5rDL9JCBw6pHX4svVPN4w122HIfIv",
+            "S3Endpoint": "11.7.148.163:8080"
+        }
+    }
+}

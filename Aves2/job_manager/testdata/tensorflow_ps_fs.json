@@ -1,0 +1,49 @@
+{
+    "jobId": "tensorflowpsfile",
+    "username": "yanghaibo1",
+    "namespace": "aideveloper",
+    "kind": "Train",
+    "engine": "TensorFlow",
+    "packageUri": "/mnt/mfs/lidachao/bench/tf_cnn_benchmarks",
+    "image": "ai-image.jd.com/dl/9.0-cudnn7-devel-ubuntu16.04-py36-tensorflow_17-gpu:1.0.0",
+    "logDir": "/mnt/mfs/lidachao/bench/log",
+    "resourceSpec": {
+        "worker": {
+            "nvidia.com/gpu": 2,
+            "memory": "20Gi",
+            "cpu": 20,
+            "port": 2222,
+            "count": "2",
+            "entryPoint": "python tf_cnn_benchmarks.py --num_gpus=2 --batch_size=32 --model=inception3 --variable_update=distributed_replicated --cross_replica_sync=True --data_name=imagenet --num_batches=200 --optimizer rmsprop --init_learning_rate 0.01 --num_epochs_per_decay 5 --minimum_learning_rate 0.0005 --learning_rate_decay_factor 0.95"
+        },
+        "ps": {
+            "nvidia.com/gpu": 2,
+            "memory": "20Gi",
+            "cpu": 10,
+            "port": 2223,
+            "count": "2",
+            "entryPoint": "python tf_cnn_benchmarks.py --num_gpus=2 --batch_size=32 --model=inception3 --variable_update=distributed_replicated --cross_replica_sync=True --data_name=imagenet --num_batches=200 --optimizer rmsprop --init_learning_rate 0.01 --num_epochs_per_decay 5 --minimum_learning_rate 0.0005 --learning_rate_decay_factor 0.95"
+        }
+    },
+    "inputSpec": {
+        "data_dir": {
+           "path": "/mnt/mfs/lidachao/imagenet/data_dir",
+           "filename": ""
+        }
+    },
+    "outputSpec": {
+        "trace_file": {
+            "path": "/mnt/mfs/lidachao/bench/timeline",
+            "filename": "bench_tm.json"
+        }
+    },
+    "cluster": "test",
+    "storageMode": {
+        "mode": "Filesystem",
+        "config": {
+            "S3AccessKeyId": "DMF0V3UYUWKO9TVEDZMR",
+            "S3SecretAccessKey": "ZhAwhHJDwbA5rDL9JCBw6pHX4svVPN4w122HIfIv",
+            "S3Endpoint": "11.7.148.163:8080"
+        }
+    }
+}

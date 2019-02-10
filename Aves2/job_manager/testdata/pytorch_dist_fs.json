@@ -1,0 +1,43 @@
+    "jobId": "pytorchdistfs",
+    "username": "yanghaibo1",
+    "kind": "Train",
+    "namespace": "default",
+    "engine": "PyTorch",
+    "forcebot": 1,
+    "debug": 1,
+    "packageUri": "http://ai-fileserver.jd.com/share/home/yanghaibo1/pytorch/dist/dist_pytorch.tgz",
+    "image": "ai-image.jd.com/library/pytorch:0.4.0",
+    "resourceSpec": {
+        "worker": {
+            "nvidia.com/gpu": 2,
+            "cpu": 8,
+            "memory": "64Gi",
+            "port": 2222,
+            "count": "2",
+            "entryPoint": "python main.py",
+            "args": ["--epochs", "1"]
+        }
+    },
+    "inputSpec": {
+        "data-dir": {
+            "path": "/mnt/cephfs/algor-api/dataset/user/c2ea551d-27f5-11e8-914e-6eb2663d5452/244",
+            "filename": ""
+        }
+    },
+    "outputSpec": {
+        "output-dir": {
+            "path": "/mnt/mfs/yanghaibo1/pytorch/dist/out",
+            "filename": ""
+        }
+    },
+    "cluster": "test",
+    "storageMode": {
+        "mode": "Filesystem",
+        "config": {
+            "S3AccessKeyId": "DMF0V3UYUWKO9TVEDZMR",
+            "S3SecretAccessKey": "ZhAwhHJDwbA5rDL9JCBw6pHX4svVPN4w122HIfIv",
+            "S3Endpoint": "11.7.148.163:8080"
+        }
+    }
+}
+

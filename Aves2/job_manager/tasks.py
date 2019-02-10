@@ -20,7 +20,7 @@ from job_manager.models import AvesJob, K8SWorker
 logger = logging.getLogger('aves2')
 
 
-# @task
+# Demo task
 @celery.task(base=QueueOnce, once={'graceful': True, 'keys': ['x']})
 def periodic_add(x, y):
     time.sleep(30)
@@ -32,18 +32,12 @@ def startup_avesjob(self, avesjob_id):
     """
     avesjob = AvesJob.objects.get(id=avesjob_id)
     k8s_workers = avesjob.make_k8s_workers()
-    
+
     # startup k8s worker
     logger.info('Startup k8s worker')
     for worker in k8s_workers:
+        worker.make_k8s_conf(save=True)
         worker.start()
-
-
-@shared_task(name='startup_k8sworker', bind=True)
-def startup_k8sworker(self, k8s_worker_id):
-    k8s_worker = K8SWorker.objects.get(id=k8s_worker_id)
-    k8s_worker.start()
-
 
 @shared_task(name='cancel_avesjob', bind=True)
 def cancel_avesjob(self, avesjob_id):
@@ -61,7 +55,6 @@ def cancel_avesjob(self, avesjob_id):
 
     pass
 
-
 @shared_task(name='finish_avesjob', bind=True)
 def finish_avesjob(self, avesjob_id):
     """ 正常结束avesjob
@@ -71,7 +64,6 @@ def finish_avesjob(self, avesjob_id):
     k8s_workers = avesjob.k8sworker_set.select_for_update.all()
 
     pass
-
 
 # @shared_task(name='k8s_event_process', bind=True)
 @celery.task(base=QueueOnce, once={'graceful': True, 'keys': ['key']})
