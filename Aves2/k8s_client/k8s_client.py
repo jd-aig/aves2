@@ -83,3 +83,111 @@ class K8SClient(object):
                 logger.error(e, exc_info=True)
                 return False, None, msg
         return True, job, ''
+
+    def create_job(self, config, namespace='default'):
+        """ Create k8s Job
+        """
+        api = client.BatchV1Api()
+        result = api.create_namespaced_job(namespace, config)
+
+        logger.debug("create job succeeded result: %s" % result) 
+        return True, result
+
+    def delete_job(self, name, namespace='default'):
+        """ Delete k8s job
+        """
+        api = client.BatchV1Api()
+        body = client.V1DeleteOptions()
+        body.propagation_policy = 'Background'
+        result = api.delete_namespaced_job(name, namespace, body)
+
+        logger.info('delete_namespaced_job name: %s succeeded' % (name))
+        return True, None
+
+    def create_svc(self, config, namespace='default'):
+        """ Create k8s Service
+
+        :param config: dict
+        :param namespace: string
+        """
+        api = self.corev1api
+        result = api.create_namespaced_service(namespace, config)
+
+        logger.debug("create service succeeded result: %s" % result) 
+        return True, result
+
+    def delete_svc(self, name, namespace='default'):
+        """ Delete k8s Service
+
+        :param name: string, 'jobid-rolename-index'
+        :param namespace:
+        :return: True, None / False, err_msg
+        """
+        api = self.corev1api
+        body = client.V1DeleteOptions()
+        body.propagation_policy = 'Background'
+        result = api.delete_namespaced_service(name, namespace, body)
+
+        logger.info("delete_namespaced_service name:%s succeeded" % (name))
+        return True, None
+
+    def create_ingress(self, config, namespace='default'):
+        """ Create k8s Ingress
+
+        :param config : dict, k8s config
+        :param namespace: string
+        :return: [True, kubernetes.client.models.v1beta1_ingress.V1beta1Ingress]
+                 or [False, err_msg]
+        """
+        api = self.ExtensionsV1beta1Api()
+        result = api.create_namespaced_ingress(namespace, config)
+
+        logger.debug("create ingress succeeded result: %s" % result)
+        return True, result
+
+    def delete_ingress(self):
+        """ Delete k8s Ingress
+
+        :param name: string, 'jobid-rolename-index'
+        :param namespace:
+        :return: True, None / False, err_msg
+        """
+        api = client.ExtensionsV1beta1Api()
+        body = client.V1DeleteOptions()
+        body.propagation_policy = 'Background'
+        result = api.delete_namespaced_ingress(name, namespace, body)
+
+        logger.info("delete_namespaced_ingress name:%s succeeded" % (name))
+        return True, None
+
+    def create_rc(self, config, namespace='default'):
+        """ Create k8s ReplicationController
+
+        :param config : dict, k8s config
+        :param namespace:
+        :return: [True, kubernetes.client.models.v1_replication_controller.V1ReplicationController]
+                 or [False, err_msg]
+        """
+        api = self.corev1api
+        result = api.create_namespaced_replication_controller(namespace, config)
+
+        logger.debug("create rc succeeded result: %s" % result)
+        return True, result
+
+    def delete_rc(self, name=None, namespace='default'):
+        """ Delete k8s ReplicationController
+
+        :param name: string, rc name
+        :param namespace: string
+        """
+        api = self.corev1api
+        body = client.V1DeleteOptions()
+        # Acceptable values are:
+        #'Orphan' - orphan the dependents;
+        #'Background' - allow the garbage collector to delete the dependents in the background;
+        #'Foreground' - a cascading policy that deletes all dependents in the foreground.
+        body.propagation_policy = 'Background'
+        result = api.delete_namespaced_replication_controller(name, namespace, body)
+
+        logger.info("delete_namespaced_replication_controller name:%s succeeded" % (name))
+        return True, None

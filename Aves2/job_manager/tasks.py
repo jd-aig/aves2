@@ -65,19 +65,61 @@ def finish_avesjob(self, avesjob_id):
 
     pass
 
-# @shared_task(name='k8s_event_process', bind=True)
+
+def _update_avesjob_status(k8s_worker, event_data):
+    """ Update avesjob status
+    """
+    avesjob = k8s_worker.avesjob
+    k8s_worker_set = avesjob.k8s_worker.all()
+
+    k8s_worker_status = k8s_worker_set.values("k8s_status", flat=True)
+    avesjob_status = avesjob.status
+    k8sworker_status_set = set(k8s_worker_status)
+
+    if 'Pending' in k8sworker_status_set:
+        avesjob.status = 'PENDING'
+    elif "Failed" in k8sworker_status_set:
+        avesjob.status = 'FAILURE'
+        # TODO: 回收avesjob
+    else:
+        if len(k8sworker_status_set) == 1 and 'Running' in k8sworker_status_set:
+            avesjob.status = 'Running'
+        elif len(k8sworker_status_set) == 1 and 'Succeeded' in k8sworker_status_set:
+            avesjob.status = 'SUCCEED'
+
+    avesjob.save()
+    if avesjob.status != avesjob_status:
+        # TODO: report avesjob status
+        _report_avesjob_status()
+
+
+def _report_avesjob_status():
+    pass
+
+
 @celery.task(base=QueueOnce, once={'graceful': True, 'keys': ['key']})
 def k8s_pod_event_process(self, key, event_data):
     """ 处理k8s pod event
     """
-    print(key)
-    print(event_data)
-    # TODO1: Get pod_phase from event
+    pod_name = event_data['pod_name']
+    merged_job_id = event_data['merged_job_id']
+    status_phase = event_data['status_phase']
 
-    # TODO2: Get k8s_podname_prefix from event data
+    k8s_worker_set = K8SWorker.objects.filter(worker_name__startswith=merged_job_id)
+    k8s_worker = None
+    for obj in k8s_worker_set:
+        if obj.worker_name in pod_name:
+            k8s_worker = obj
+            break
+    
+    k8s_worker.k8s_status = status_phase
+    k8s_worker.save()
 
-    # TODO3: Get k8sworker obj
+    _update_avesjob_status(k8s_worker, event_data)
 
-    # TODO4: Update k8sworker status & avesjob status
 
-    pass 
+
+def k8s_event_process(self, key, event_data):
+    """ 处理k8s event
+    """
+    pass

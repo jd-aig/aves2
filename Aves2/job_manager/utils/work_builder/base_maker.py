@@ -42,9 +42,9 @@ class BaseMaker:
         if self.target_worker.cpu_limit:
             resource['limits']['cpu'] = self.target_worker.cpu_limit
         if self.target_worker.mem_request:
-            resource['requests']['mem'] = '%sGi' % self.target_worker.mem_request
+            resource['requests']['memory'] = '%sGi' % self.target_worker.mem_request
         if self.target_worker.mem_limit:
-            resource['limits']['mem'] = '%sGi' % self.target_worker.mem_limit
+            resource['limits']['memory'] = '%sGi' % self.target_worker.mem_limit
         if self.target_worker.gpu_request:
             resource['requests']['nvidia.com/gpu'] = self.target_worker.gpu_request
             resource['limits']['nvidia.com/gpu'] = self.target_worker.gpu_request

@@ -40,17 +40,32 @@ def pod_event_process(event):
     pod_name = event['object'].metadata.name
     namespace = event['object'].metadata.namespace
     status_phase = event['object'].status.phase
+    container_status = event['object'].status.container_statuses
+
+    merged_job_id = event_type['object'].metadata.labels.get('jobId')
+    if not merged_job_id:
+        logger.info('jobId is None, ingore pod event')
+        return
+
+    finished_code = None
+    reason = None
+    if container_status and len(container_status)>0:
+        if container_status[0].state.terminated.exit_code:
+            finished_code = container_status[0].state.terminated.exit_code
+            reason = container_status[0].state.terminated.reason
 
     key = get_pod_event_key(event)
     event_data = {
         "pod_name": pod_name,
         "namespace": namespace,
         "event_type": event_type,
-        "status_phase": status_phase
+        "status_phase": status_phase,
+        "merged_job_id": merged_job_id,
+        "finished_code": finished_code,
+        "reason": reason
     }
 
-    if 'demo' in pod_name and namespace == 'logcollector':
-        k8s_pod_event_process.apply_async(args=(key, event_data))
+    k8s_pod_event_process.apply_async(args=(key, event_data))
 
 
 def start_pod_event_watch():
