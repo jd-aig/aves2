@@ -104,6 +104,24 @@ class K8SClient(object):
         logger.info('delete_namespaced_job name: %s succeeded' % (name))
         return True, None
 
+    def list_job(self, selector=None, namespace='default'):
+        """ List namespaced job
+        """
+        condition = None
+
+        if selector:
+            success, condition = self._build_condition(selector=selector)
+            if not success:
+                return False, condition
+
+        api = client.BatchV1Api
+        if not condition:
+            result = api.list_namespaced_job(namespace, watch=False)
+        else:
+            result = api.list_namespaced_job(namespace, label_selector=condition, watch=False)
+
+        return True, result.items
+
     def create_svc(self, config, namespace='default'):
         """ Create k8s Service
 
@@ -130,6 +148,11 @@ class K8SClient(object):
 
         logger.info("delete_namespaced_service name:%s succeeded" % (name))
         return True, None
+
+    def list_svc(self, selector=None, namespace='default'):
+        """ List namespaced service
+        """
+        pass
 
     def create_ingress(self, config, namespace='default'):
         """ Create k8s Ingress
@@ -159,6 +182,9 @@ class K8SClient(object):
 
         logger.info("delete_namespaced_ingress name:%s succeeded" % (name))
         return True, None
+
+    def list_ingress(self, selector=None, namespace='default'):
+        pass
 
     def create_rc(self, config, namespace='default'):
         """ Create k8s ReplicationController
@@ -191,3 +217,23 @@ class K8SClient(object):
 
         logger.info("delete_namespaced_replication_controller name:%s succeeded" % (name))
         return True, None
+
+    def _build_condition(self, selector=None):
+        if not selector:
+            err_msg = 'Selector cannot be none'
+            return False, err_msg
+
+        condition = ''
+        if selector:
+            if not isinstance(selector, dict):
+                err_msg = 'Selector must be dict'
+                return False, err_msg
+
+            for k, v in selector.items():
+                condition += '%s=%s,' % (k, v)
+            if len(condition) > 0:
+                condition = condition[:-1]
+        return True, condition 
+
+
+k8s_client = K8SClient()

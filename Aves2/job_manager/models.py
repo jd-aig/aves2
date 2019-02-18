@@ -12,6 +12,8 @@ from django_mysql.models import JSONField
 from django.conf import settings
 
 from .utils.work_builder import get_train_maker, get_storage_mixin_cls
+from k8s_client.k8s_client import k8s_client
+from job_manager.conf import exec_backend
 
 
 logger = logging.getLogger('aves2')
@@ -41,6 +43,7 @@ class AvesJob(models.Model):
         ('PENDING', '等待中'),
         ('RUNNING', '运行中'),
         ('FINISHED', '已结束'),
+        ('FAILURE', '已失败'),
         ('CANCELED', '已取消'),
     )
 
@@ -53,7 +56,7 @@ class AvesJob(models.Model):
     # forcebot: 0上报mq，1不上报（测试模式)
     # debug: 是否开发模式，1，不删除job
     image = models.CharField(max_length=512, blank=False, null=False)
-    package_uri = models.CharField(max_length=512, blank=True, null=False, default='')
+    package_uri = models.CharField(max_length=512, blank=True, null=False, default='')  # 是什么？
     resource_spec = JSONField(blank=False, default=json_field_default)
     storage_mode = models.CharField(max_length=32, blank=False, null=False, default='Filesystem')
     storage_config = JSONField(blank=True, null=False, default=json_field_default)
@@ -192,17 +195,38 @@ class K8SWorker(models.Model):
         if save:
             self.save()
 
-    def start(self):
-        # Create k8s job
-        logger.info('Create k8s worker pod')
-        # update k8s_status
-        logger.info('Update k8s_status')
+    def _del_k8s_resource(self, conf):
         pass
 
-    def stop(self):
-        # Update k8sworker status
 
-        # Delete k8sworker related k8sresource
+    def _create_k8s_resource(self, conf):
+        handler = exec_backend.get(conf['kind'])
+        if handler:
+            try:
+                res, err_msg = handler['create'](config=conf, namespace=self.namespace)
+            except Exception as e:
+                logger.error('Create k8s resource failed, kind: {0}, name: {1}'.format(conf['kind'], conf['metadata']['name']))
+                _del_k8s_resource(self, conf)
+        else:
+            logger.error("Unsupported resource kind: {0}, name: {1}".format(conf['kind'], conf['metadata']['name']))
+
+    def start(self):
+        worker_conf = self.worker_json
+        svc_conf = self.service_json
+        ingress_conf = self.ingress_json
+
+        if worker_conf:
+            self._create_k8s_resource(worker_conf)
+
+        if svc_conf:
+            self._create_k8s_resource(svc_conf)
+
+        if ingress_conf:
+            self._create_k8s_resource(ingress_conf)
+
+
+    def stop(self):
+        
         pass
 
     def __str__(self):

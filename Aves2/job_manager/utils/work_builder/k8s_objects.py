@@ -6,6 +6,14 @@ def make_k8s_ports(ports):
     ports_conf = []
     for port in ports:
         ports_conf.append({"containerPort": port, "name": "%s-port" % port})
+        # ports_conf.append({'port': port, 'targetPort': port, 'name': '%s-port' % port})
+    return ports_conf
+
+def make_k8s_svc_ports(ports):
+    ports_conf = []
+    for port in ports:
+        # ports_conf.append({"containerPort": port, "name": "%s-port" % port})
+        ports_conf.append({'port': port, 'targetPort': port, 'name': '%s-port' % port})
     return ports_conf
 
 def make_ingress(
@@ -64,7 +72,7 @@ def make_svc(
             "selector": {
                 "app": name
             },
-            "ports": make_k8s_ports(ports)
+            "ports": make_k8s_svc_ports(ports)
         }
     }
     return conf

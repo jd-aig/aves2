@@ -31,13 +31,20 @@ def startup_avesjob(self, avesjob_id):
     """ 启动AVES训练任务
     """
     avesjob = AvesJob.objects.get(id=avesjob_id)
-    k8s_workers = avesjob.make_k8s_workers()
+    avesjob.status == 'STARTING'
+    avesjob.save()
+
+    # TODO: report avesjob status: starting
+
+    # make k8s workers
+    avesjob.make_k8s_workers()
 
     # startup k8s worker
     logger.info('Startup k8s worker')
-    for worker in k8s_workers:
-        worker.make_k8s_conf(save=True)
+    for worker in avesjob.k8s_worker.all():
+        worker.make_k8s_conf()
         worker.start()
+
 
 @shared_task(name='cancel_avesjob', bind=True)
 def cancel_avesjob(self, avesjob_id):
@@ -54,6 +61,7 @@ def cancel_avesjob(self, avesjob_id):
         worker.stop()
 
     pass
+
 
 @shared_task(name='finish_avesjob', bind=True)
 def finish_avesjob(self, avesjob_id):
@@ -72,22 +80,28 @@ def _update_avesjob_status(k8s_worker, event_data):
     avesjob = k8s_worker.avesjob
     k8s_worker_set = avesjob.k8s_worker.all()
 
-    k8s_worker_status = k8s_worker_set.values("k8s_status", flat=True)
+    k8s_worker_status = k8s_worker_set.values_list("k8s_status", flat=True)
     avesjob_status = avesjob.status
     k8sworker_status_set = set(k8s_worker_status)
 
-    if 'Pending' in k8sworker_status_set:
-        avesjob.status = 'PENDING'
-    elif "Failed" in k8sworker_status_set:
+    # if 'Pending' in k8sworker_status_set:
+    #     avesjob.status = 'STARTING'
+    if "Failed" in k8sworker_status_set:
         avesjob.status = 'FAILURE'
         # TODO: 回收avesjob
     else:
         if len(k8sworker_status_set) == 1 and 'Running' in k8sworker_status_set:
-            avesjob.status = 'Running'
+            avesjob.status = 'RUNNING'
         elif len(k8sworker_status_set) == 1 and 'Succeeded' in k8sworker_status_set:
             avesjob.status = 'SUCCEED'
-
+            # TODO: report avesjob status
+            # cancel_avesjob
     avesjob.save()
+
+    if avesjob.status in ['FAILURE', 'SUCCEED']:
+        # TODO: cancel
+        pass
+
     if avesjob.status != avesjob_status:
         # TODO: report avesjob status
         _report_avesjob_status()
@@ -112,14 +126,54 @@ def k8s_pod_event_process(self, key, event_data):
             k8s_worker = obj
             break
     
+    if not k8s_worker:
+        return
     k8s_worker.k8s_status = status_phase
     k8s_worker.save()
 
     _update_avesjob_status(k8s_worker, event_data)
 
 
-
+@celery.task(base=QueueOnce, once={'graceful': True, 'keys': ['key']})
 def k8s_event_process(self, key, event_data):
     """ 处理k8s event
     """
-    pass
+    event_type = event_data['event_type']
+    kind = event_data['kind']
+    obj_name = event_data['obj_name']
+    reason = event_data['reason']
+    message = event_data['message']
+
+    arr = obj_name.split('-')
+    # merged_job_id = '{0}-{1}-{2}'.format(arr[0], arr[1], arr[2])
+
+    avesjob_set = AvesJob.objects.filter(username=arr[0], namespace=arr[1], job_id=arr[2])
+    if not avesjob_set:
+        return
+    avesjob = avesjob_set[0]
+    status = avesjob.status
+    err_msg = "%s:[%s - %s]" % (obj_name, reason, message)
+
+    if event_type=='Warning' and (avesjob.status=="STARTING" or avesjob.status=='FAILURE'):
+        if reason in ['FailedMount', 'BackOff', 'BackoffLimitExceeded', 'FailedCreate']:
+            if reason == 'FailedMount':
+                err_msg = "reason: [%s]" % reason
+            avesjob.status = 'FAILURE'
+            avesjob.save()
+        elif reason in ['FailedScheduling']:
+            avesjob.status = 'STARTING'
+            avesjob.save()
+    elif event_type=='Warning' and avesjob.status=="RUNNING":
+        if reason in ['FailedMount', 'BackOff', 'BackoffLimitExceeded', 'FailedCreate']:
+            if reason == 'BackOff' or reason == 'BackoffLimitExceeded':
+                err_msg = "reason: [%s]" % reason
+            avesjob.status = 'FAILURE'
+            avesjob.save()
+
+    if avesjob.status in ['FAILURE', 'SUCCEED']:
+        # TODO: cancel avesjob
+        pass
+
+    if status != avesjob.status:
+        _report_avesjob_status(status, err_msg=err_msg)
+

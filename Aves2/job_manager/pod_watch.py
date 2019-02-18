@@ -42,7 +42,10 @@ def pod_event_process(event):
     status_phase = event['object'].status.phase
     container_status = event['object'].status.container_statuses
 
-    merged_job_id = event_type['object'].metadata.labels.get('jobId')
+    if not event['object'].metadata.labels:
+        logger.error('jobId is None, ingore pod event')
+        return
+    merged_job_id = event['object'].metadata.labels.get('jobId')
     if not merged_job_id:
         logger.info('jobId is None, ingore pod event')
         return

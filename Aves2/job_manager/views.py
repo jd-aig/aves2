@@ -24,7 +24,9 @@ class AvesJobViewSet(viewsets.ViewSet):
     def create(self, request):
         """ Create a avesjob record
         """
-        avesjob_form = AvesJobForm(request.POST)
+        request_data = request.POST
+        form_data = AvesJob.trans_request_data(request_data)
+        avesjob_form = AvesJobForm(form_data)
 
         if not avesjob_form.is_valid():
             err_msg = "Failed to create avesjob record, form_data: {data}, err_msg: {err_text}"\
@@ -33,9 +35,22 @@ class AvesJobViewSet(viewsets.ViewSet):
 
         avesjob = avesjob_form.save()
 
-        # TODO: update merge_id
-
         # Startup avesjob
         startup_avesjob.delay(avesjob.id)
 
         return Response(status=status.HTTP_201_CREATED)
+
+    @detail_route(methods=['post'])
+    def cancel(self, request):
+        """ Cancel avesjob by user
+        """
+        job_id = request.POST.get('jobId')
+        username = request.POST.get('username')
+        namespace = request.POST.get('namespace')
+
+        if not (job_id and username and namespace):
+            return Response({'err_msg': 'JobId or username or namespace required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # TODO: delete avesjob related k8s resource
+        
+        return Response(status=status.HTTP_200_OK)
