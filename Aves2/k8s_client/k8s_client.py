@@ -114,7 +114,7 @@ class K8SClient(object):
             if not success:
                 return False, condition
 
-        api = client.BatchV1Api
+        api = client.BatchV1Api()
         if not condition:
             result = api.list_namespaced_job(namespace, watch=False)
         else:
@@ -150,9 +150,22 @@ class K8SClient(object):
         return True, None
 
     def list_svc(self, selector=None, namespace='default'):
-        """ List namespaced service
+        """ List namespaced service with label_selector
         """
-        pass
+        condition = None
+
+        if selector:
+            success, condition = self._build_condition(selector=selector)
+            if not success:
+                return False, condition
+
+        api = self.corev1api
+        if not condition:
+            result = api.list_namespaced_service(namespace, watch=False)
+        else:
+            result = api.list_namespaced_service(namespace, label_selector=condition, watch=False)
+
+        return True, result.items
 
     def create_ingress(self, config, namespace='default'):
         """ Create k8s Ingress
@@ -184,7 +197,22 @@ class K8SClient(object):
         return True, None
 
     def list_ingress(self, selector=None, namespace='default'):
-        pass
+        """ List namespaced ingress with selector
+        """
+        condition = None
+
+        if selector:
+            success, condition = self._build_condition(selector=selector)
+            if not success:
+                return False, condition
+
+        api = client.ExtensionsV1beta1Api()
+        if not condition:
+            result = api.list_namespaced_ingress(namespace, watch=False)
+        else:
+            result = api.list_namespaced_ingress(namespace, label_selector=condition, watch=False)
+
+        return True, result.items
 
     def create_rc(self, config, namespace='default'):
         """ Create k8s ReplicationController
@@ -217,6 +245,24 @@ class K8SClient(object):
 
         logger.info("delete_namespaced_replication_controller name:%s succeeded" % (name))
         return True, None
+
+    def list_rc(self, selector=None, namespace='default'):
+        """ List namespaced ReplicationController with label_selector
+        """
+        condition = None
+
+        if selector:
+            success, condition = self._build_condition(selector=selector)
+            if not success:
+                return False, condition
+
+        api = self.corev1api
+        if not condition:
+            result = api.list_namespaced_replication_controller(namespace, watch=False)
+        else:
+            result = api.list_namespaced_replication_controller(namespace, label_selector=condition, watch=False)
+
+        return True, result.items
 
     def _build_condition(self, selector=None):
         if not selector:

@@ -106,6 +106,23 @@ class AvesJob(models.Model):
             data.pop('debug')
         return data
 
+    def cancel_avesjob(self):
+        """ Cancel avesjob and del related k8s resources
+        """
+        err_msg = ''
+        result = True
+
+        for kind, handler in exec_backend.items():
+            l_rs, rcs = handler['list']({'jobId': self.job_id}, namespace=self.namespace)
+            if l_rs and rcs:
+                for rc_i in rcs:
+                    d_rs, d_msg = handler['delete'](rc_i.metadata.name, namespace=self.namespace)
+                    if not d_rs:
+                        err_msg += 'Failed to delete %s=%s Reason=%s ;' % (kind, rc_i.metadata.name, d_msg)
+                        result = False
+
+        return result, err_msg
+
     @property
     def merged_id(self):
         return '{0}-{1}-{2}'.format(self.username, self.namespace, self.job_id)

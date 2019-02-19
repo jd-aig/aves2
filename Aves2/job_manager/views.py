@@ -13,7 +13,7 @@ from rest_framework.decorators import api_view, list_route, detail_route
 
 from job_manager.models import AvesJob, K8SWorker
 from job_manager.forms import AvesJobForm
-from job_manager.tasks import startup_avesjob
+from job_manager.tasks import startup_avesjob, cancel_avesjob
 
 logger = logging.getLogger('aves2')
 
@@ -24,7 +24,7 @@ class AvesJobViewSet(viewsets.ViewSet):
     def create(self, request):
         """ Create a avesjob record
         """
-        request_data = request.POST
+        request_data = request.data
         form_data = AvesJob.trans_request_data(request_data)
         avesjob_form = AvesJobForm(form_data)
 
@@ -41,7 +41,7 @@ class AvesJobViewSet(viewsets.ViewSet):
         return Response(status=status.HTTP_201_CREATED)
 
     @detail_route(methods=['post'])
-    def cancel(self, request):
+    def cancel_job(self, request):
         """ Cancel avesjob by user
         """
         job_id = request.POST.get('jobId')
@@ -51,6 +51,12 @@ class AvesJobViewSet(viewsets.ViewSet):
         if not (job_id and username and namespace):
             return Response({'err_msg': 'JobId or username or namespace required'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # TODO: delete avesjob related k8s resource
-        
+        avesjob_set = AvesJob.objects.filter(username=username, namespace=namespace, job_id=job_id)
+        if not avesjob_set:
+            logger.error('No matched avesjob')
+            return Response({'err_msg': 'Invalid param, no matched avesjob'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # delete avesjob related k8s resource       
+        cancel_avesjob.delay(username, namespace, job_id)
+
         return Response(status=status.HTTP_200_OK)
