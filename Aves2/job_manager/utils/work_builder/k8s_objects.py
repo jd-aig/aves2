@@ -86,6 +86,7 @@ def make_job(
     args=[],
     ports=[],
     envs=[],
+    grace_period=30,
     resources={},
     volume_mounts=[],
     volumes=[],
@@ -126,7 +127,7 @@ def make_job(
                         "volumeMounts": volume_mounts
                     }],
                     "initContainers": init_containers,
-                    "hostIPC": hostipc,
+                    "terminationGracePeriodSeconds": grace_period,
                     "volumes": volumes,
                     "restartPolicy": "Never",
                     "affinity": affinity,
@@ -146,6 +147,7 @@ def make_rc(
     args=[],
     ports=[],
     envs=[],
+    grace_period=30,
     resources={},
     volume_mounts=[],
     volumes=[],
@@ -187,7 +189,7 @@ def make_rc(
                         "volumeMounts": volume_mounts
                     }],
                     "initContainers": init_containers,
-                    "hostIPC": hostipc,
+                    "terminationGracePeriodSeconds": grace_period,
                     "volumes": volumes,
                     "affinity": affinity,
                     "schedulerName": scheduler

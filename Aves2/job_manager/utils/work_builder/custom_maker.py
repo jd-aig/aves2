@@ -26,6 +26,7 @@ class K8sCustomTrainMaker(BaseMaker):
             args=self.gen_worker_exec_commands(self.target_worker.role_index),
             ports=self.gen_ports(),
             envs=self.gen_envs(),
+            grace_period=self._gen_grace_period(),
             resources=self.gen_resource_spec(),
             volume_mounts=self._gen_volume_mounts(),
             volumes=self._gen_volumes(self.target_worker.worker_name),

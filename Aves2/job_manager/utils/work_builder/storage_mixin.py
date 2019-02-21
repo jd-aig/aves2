@@ -81,7 +81,27 @@ class StorageMixIn():
         }
         return volume
 
+    def _gen_create_s3cfg_cmd(self):
+        CFG_FILE = "/root/.s3cfg"
+        CFG_MAP = {}
+        s3_config = self.avesjob.storage_config
+        CFG_MAP['access_key'] = s3_config['S3AccessKeyId']
+        CFG_MAP['secret_key'] = s3_config['S3SecretAccessKey']
+        CFG_MAP['host_base'] = s3_config['S3Endpoint']
+        CFG_MAP['host_bucket'] = ""
+        CFG_MAP['use_https'] = "False"
+
+        cmd = "echo \""
+        for k,v in CFG_MAP.items():
+            cmd += "%s = %s\n" % (k, v)
+        cmd += "\" > %s" % CFG_FILE
+        return cmd
+
     def _gen_s3cmd_sync_cmd(self, src, dst):
+        # if need quiet the output use this "s3cmd sync -q %s %s"
+        return "s3cmd sync %s %s" % (src, dst)
+
+    def _gen_s3cmd_sync_cmd_with_auth(self, src, dst):
         s3_config = self.avesjob.storage_config
         return "s3cmd --access_key=%s --secret_key=%s --host=%s --host-bucket= --no-ssl sync %s %s" % \
                 (s3_config['S3AccessKeyId'], s3_config['S3SecretAccessKey'],
@@ -93,6 +113,7 @@ class StorageMixIn():
         src = os.path.join(self.avesjob.package_uri, '')
         dst = os.path.join(CONTAINER_WORKSPACE, '')
         return self._gen_s3cmd_sync_cmd(src, dst)
+
     #
     # Public function can be override by child class
     #
@@ -119,6 +140,10 @@ class StorageMixIn():
 
     def _gen_storage_env(self):
         return []
+
+    def _gen_grace_period(self):
+        # default value in k8s
+        return 30
 
 MFS_AVES_RUNLOG_DIR="/mnt/mfs/aves/jobs/logs"
 CEPH_AVES_RUNLOG_DIR="/mnt/cephfs/public/aves/jobs/logs"
@@ -327,6 +352,7 @@ class OssStorageMixIn(StorageMixIn):
 
     def _gen_workspace_prepare_cmd(self, roleName, index):
         cmd = 'mkdir -p %s ; cd %s ;' % (CONTAINER_WORKSPACE, CONTAINER_WORKSPACE)
+        cmd += "%s ; " % self._gen_create_s3cfg_cmd()
         cmd += "%s ; " % self._gen_oss_sync_package_cmd()
         return cmd
 
@@ -386,6 +412,21 @@ class OssFileStorageMixIn(StorageMixIn):
         }
         return volume
 
+    def __unpack_pkg_cmd(self, comp_file, dst):
+        if comp_file.endswith('.tar.gz') or comp_file.endswith('.tgz'):
+            return 'mkdir -p %s && tar zxf %s -C %s' % (dst, comp_file, dst)
+        elif comp_file.endswith('.zip'):
+            return 'unzip -q %s -d %s' % (comp_file, dst)
+        else:
+            raise Exception('Unknown package type: %s' % comp_file)
+
+    def __is_compressed_file(self, path):
+        if path.endswith('.tar.gz') or path.endswith('.tgz') or \
+                path.endswith('.zip'):
+            return True
+        else:
+            return False
+
     def _gen_volumes(self, role_name):
         volumes = []
         volumes.append(self.__gen_volume_for_pv(role_name))
@@ -396,6 +437,7 @@ class OssFileStorageMixIn(StorageMixIn):
     def _gen_workspace_prepare_cmd(self, roleName, index):
         cmd = 'mkdir -p %s %s; cd %s ;' % (CONTAINER_WORKSPACE,
                 OSS_SYNC_BASE, CONTAINER_WORKSPACE)
+        cmd += "%s ; " % self._gen_create_s3cfg_cmd()
         cmd += "%s ; " % self._gen_oss_sync_package_cmd()
         cmd += "wget %s ; " % WRAPPER_SCRIPT_PATH
         # use exec to swap last cmd with root process to handle SIGTERM
@@ -412,7 +454,15 @@ class OssFileStorageMixIn(StorageMixIn):
                 src_path = os.path.join(path, '')
             else:
                 src_path = os.path.join(path, filename)
-            pre_cmd += "%s; " % self._gen_s3cmd_sync_cmd(src_path, dst_path)
+
+            if self.__is_compressed_file(src_path):
+                comp_file = os.path.basename(src_path)
+                # let's sync to ./ then unpack to dst_path
+                pre_cmd += "%s; " % self._gen_s3cmd_sync_cmd(src_path, './')
+                pre_cmd += "%s; " % self.__unpack_pkg_cmd(comp_file, dst_path)
+            else:
+                pre_cmd += "%s; " % self._gen_s3cmd_sync_cmd(src_path, dst_path)
+
         for name, value in self.avesjob.output_spec.items():
             pre_cmd += "mkdir %s; " % os.path.join(OSS_SYNC_BASE, name)
         cmd = "--pre_cmd \"%s\" " % pre_cmd
@@ -437,15 +487,21 @@ class OssFileStorageMixIn(StorageMixIn):
     def _gen_args_from_dict(self, ioput_dict):
         args = ''
         for name, value in ioput_dict.items():
-            path = value['path']
             filename = name
             if value['filename']:
                 filename = os.path.join(name, value['filename'])
-            args += ' --%s %s' % (name, os.path.join(OSS_SYNC_BASE, filename))
+            if ioput_dict == self.inputSpec and self.__is_compressed_file(filename):
+                args += ' --%s %s' % (name, os.path.join(OSS_SYNC_BASE, name, ''))
+            else:
+                args += ' --%s %s' % (name, os.path.join(OSS_SYNC_BASE, filename))
         return args
 
     def _gen_storage_env(self):
         return []
+
+    def _gen_grace_period(self):
+        # 40MB/s average speed, 2min can upload about 5GB
+        return 120
 
 STORAGE_MIXIN_CLS_DICT = {
     "Filesystem": FsStorageMixIn,
@@ -458,4 +514,3 @@ def get_storage_mixin_cls(storage_mode):
     if cls is None:
         raise Exception("Invalid storage mode:%s" % storage_mode)
     return cls
-
