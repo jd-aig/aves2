@@ -23,7 +23,7 @@ class K8sCaffeTrainMaker(BaseMaker):
     def gen_worker_confs_for_k8s(self):
         """
         """
-        job_conf = make_job(
+        job_conf = make_pod(
             name=self.target_worker.worker_name,
             namespace=self.target_worker.namespace,
             job_id=self.avesjob.merged_id,

@@ -1,6 +1,6 @@
 from .base_maker import BaseMaker
 from .k8s_objects import (
-    make_job, make_rc
+    make_job, make_rc, make_pod
 )
 
 PADDLE_WORKER_DEFAULT_PORT = 2222
@@ -18,7 +18,7 @@ class K8sCustomTrainMaker(BaseMaker):
     def gen_worker_confs_for_k8s(self):
         """
         """
-        job_conf = make_job(
+        job_conf = make_pod(
             name=self.target_worker.worker_name,
             namespace=self.target_worker.namespace,
             job_id=self.avesjob.merged_id,

@@ -199,3 +199,53 @@ def make_rc(
     }
     return conf
 
+def get_k8s_pod(
+    name,
+    namespace,
+    job_id,
+    image,
+    cmd=["/bin/bash", "-c"],
+    args=[],
+    ports=[],
+    envs=[],
+    grace_period=30,
+    resources={},
+    volume_mounts=[],
+    volumes=[],
+    affinity={},
+    init_containers=[],
+    scheduler=None,
+    hostipc=False
+):
+    conf = {
+        "apiVersion": "v1",
+        "kind": "Pod",
+        "metadata": {
+            "name": name,
+            "namespace": namespace,
+            "labels": {
+                "app": name,
+                "jobId": job_id,
+            }
+        },
+        "spec": {
+            "containers": [{
+                "name": name,
+                "image": image,
+                "imagePullPolicy": "Always",
+                "ports": make_k8s_ports(ports),
+                "env": envs,
+                "command": cmd,
+                "args": args,
+                "resources": resources,
+                "volumeMounts": volume_mounts
+            }],
+            "initContainers": init_containers,
+            "terminationGracePeriodSeconds": grace_period,
+            "volumes": volumes,
+            # "restartPolicy": "Never",
+            "affinity": affinity,
+            "schedulerName": scheduler
+        }
+    }
+    return conf

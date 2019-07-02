@@ -3,7 +3,7 @@ from django.conf import settings
 
 from .base_maker import BaseMaker
 from .k8s_objects import (
-    make_job, make_rc
+    make_job, make_rc, make_pod
 )
 
 K8S_NV_GPU_RES = settings.K8S_NV_GPU_RES
@@ -27,7 +27,7 @@ class K8sSGETrainMaker(BaseMaker):
     def gen_worker_confs_for_k8s(self):
         """
         """
-        job_conf = make_job(
+        job_conf = make_pod(
             name=self.target_worker.worker_name,
             namespace=self.target_worker.namespace,
             job_id=self.avesjob.merged_id,
@@ -46,7 +46,7 @@ class K8sSGETrainMaker(BaseMaker):
     def gen_master_confs_for_k8s(self):
         """
         """
-        job_conf = make_job(
+        job_conf = make_pod(
             name=self.target_worker.worker_name,
             namespace=self.target_worker.namespace,
             job_id=self.avesjob.merged_id,

@@ -16,6 +16,7 @@ CEPH_SECRET = settings.CEPH_SECRET
 S3_ACCESS_KEY_ID = settings.S3_ACCESS_KEY_ID
 S3_SECRET_ACCESS_KEY = settings.S3_SECRET_ACCESS_KEY
 S3_ENDPOINT = settings.S3_ENDPOINT
+FILESERVER_AVES_BASE_URL = settings.FILESERVER_AVES_BASE_URL
 
 
 class JobEngine:
@@ -81,6 +82,34 @@ class StorageMixIn():
         }
         return volume
 
+    # use awscli (aws s3) to replace s3cmd
+    def _gen_create_awss3cfg_cmd(self):
+        s3_config = self.avesjob.storage_config
+        cmd = "mkdir /root/.aws; echo '[default]\n[paioss]' > /root/.aws/config;" \
+              "echo '[default]\naws_access_key_id = %s\naws_secret_access_key = %s\n" \
+              "[paioss]\naws_access_key_id = %s\naws_secret_access_key = %s' > /root/.aws/credentials" % \
+              (s3_config['S3AccessKeyId'], s3_config['S3SecretAccessKey'], S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY)
+        return cmd
+
+    def _gen_awss3_sync_cmd(self, src, dst):
+        s3_config = self.avesjob.storage_config
+        return "aws s3 --endpoint-url=%s --only-show-errors --page-size=100000000 sync %s %s" % \
+                (s3_config['S3Endpoint'], src, dst)
+
+    def _gen_awss3_get_cmd(self, src, dst):
+        s3_config = self.avesjob.storage_config
+        return "aws s3 --endpoint-url=%s --only-show-errors cp %s %s" % (s3_config['S3Endpoint'], src, dst)
+
+    def _gen_awss3_sync_cmd_with_auth(self, src, dst):
+        s3_config = self.avesjob.storage_config
+        return "aws s3 --endpoint-url=%s --only-show-errors --page-size=100000000 --profile=paioss sync %s %s" % \
+                (S3_ENDPOINT, src, dst)
+
+    def _gen_awss3_get_cmd_with_auth(self, src, dst):
+        s3_config = self.avesjob.storage_config
+        return "aws s3 --endpoint-url=%s --profile=paioss --only-show-errors cp %s %s" % \
+                (S3_ENDPOINT, src, dst)
+
     def _gen_create_s3cfg_cmd(self):
         CFG_FILE = "/root/.s3cfg"
         CFG_MAP = {}
@@ -101,18 +130,59 @@ class StorageMixIn():
         # if need quiet the output use this "s3cmd sync -q %s %s"
         return "s3cmd sync %s %s" % (src, dst)
 
+    def _gen_s3cmd_get_cmd(self, src, dst):
+        # if need quiet the output use this "s3cmd get -q %s %s"
+        return "s3cmd get %s %s" % (src, dst)
+
     def _gen_s3cmd_sync_cmd_with_auth(self, src, dst):
         s3_config = self.avesjob.storage_config
         return "s3cmd --access_key=%s --secret_key=%s --host=%s --host-bucket= --no-ssl sync %s %s" % \
-                (s3_config['S3AccessKeyId'], s3_config['S3SecretAccessKey'],
-                s3_config['S3Endpoint'], src, dst)
+                (S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY, S3_ENDPOINT,
+                src, dst)
+
+    def _gen_s3cmd_get_cmd_with_auth(self, src, dst):
+        s3_config = self.avesjob.storage_config
+        return "s3cmd --access_key=%s --secret_key=%s --host=%s --host-bucket= --no-ssl get %s %s" % \
+                (S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY, S3_ENDPOINT,
+                src, dst)
 
     def _gen_oss_sync_package_cmd(self):
         if not self._is_oss_path(self.avesjob.package_uri):
             raise Exception('Invalid S3 path for package_uri: %s' % self.avesjob.package_uri)
-        src = os.path.join(self.avesjob.package_uri, '')
-        dst = os.path.join(CONTAINER_WORKSPACE, '')
-        return self._gen_s3cmd_sync_cmd(src, dst)
+        if self.avesjob.package_uri.endswith('.zip'):
+            dst = dst = os.path.join(CONTAINER_WORKSPACE, '')
+            cmd = "%s ; " % self._gen_awss3_get_cmd(self.avesjob.package_uri, dst)
+            comp_file = os.path.join(CONTAINER_WORKSPACE, os.path.basename(self.avesjob.package_uri))
+            cmd += "unzip %s -d %s" % (comp_file, CONTAINER_WORKSPACE)
+        elif self.avesjob.package_uri.endswith('.tgz'):
+            dst = dst = os.path.join(CONTAINER_WORKSPACE, '')
+            cmd = "%s ; " % self._gen_awss3_get_cmd(self.avesjob.package_uri, dst)
+            comp_file = os.path.join(CONTAINER_WORKSPACE, os.path.basename(self.avesjob.package_uri))
+            cmd += "tar zxf %s -C %s" % (comp_file, CONTAINER_WORKSPACE)
+        else:
+            src = os.path.join(self.avesjob.package_uri, '')
+            dst = os.path.join(CONTAINER_WORKSPACE, '')
+            cmd = self._gen_awss3_sync_cmd(src, dst)
+        return cmd
+
+    def _gen_oss_sync_package_cmd_with_auth(self):
+        if not self._is_oss_path(self.avesjob.package_uri):
+            raise Exception('Invalid S3 path for packageUri: %s' % self.packageUri)
+        if self.avesjob.package_uri.endswith('.zip'):
+            dst = dst = os.path.join(CONTAINER_WORKSPACE, '')
+            cmd = "%s ; " % self._gen_awss3_get_cmd_with_auth(self.avesjob.package_uri, dst)
+            comp_file = os.path.join(CONTAINER_WORKSPACE, os.path.basename(self.avesjob.package_uri))
+            cmd += "unzip %s -d %s" % (comp_file, CONTAINER_WORKSPACE)
+        elif self.avesjob.package_uri.endswith('.tgz'):
+            dst = dst = os.path.join(CONTAINER_WORKSPACE, '')
+            cmd = "%s ; " % self._gen_awss3_get_cmd_with_auth(self.avesjob.package_uri, dst)
+            comp_file = os.path.join(CONTAINER_WORKSPACE, os.path.basename(self.avesjob.package_uri))
+            cmd += "tar zxf %s -C %s" % (comp_file, CONTAINER_WORKSPACE)
+        else:
+            src = os.path.join(self.avesjob.package_uri, '')
+            dst = os.path.join(CONTAINER_WORKSPACE, '')
+            cmd = self._gen_awss3_sync_cmd_with_auth(src, dst)
+        return cmd
 
     #
     # Public function can be override by child class
@@ -331,7 +401,7 @@ class FsStorageMixIn(StorageMixIn):
         for name, value in ioput_dict.items():
             path = value['path']
             filename = name
-            if value['filename']:
+            if value['filename'] is not None:
                 filename = os.path.join(name, value['filename'])
             args += ' --%s %s' % (name, os.path.join(CONTAINER_MOUNT_DIR, filename))
         return args
@@ -351,9 +421,13 @@ class OssStorageMixIn(StorageMixIn):
         return volumes
 
     def _gen_workspace_prepare_cmd(self, roleName, index):
+        job_id = self.avesjob.job_id
         cmd = 'mkdir -p %s ; cd %s ;' % (CONTAINER_WORKSPACE, CONTAINER_WORKSPACE)
-        cmd += "%s ; " % self._gen_create_s3cfg_cmd()
-        cmd += "%s ; " % self._gen_oss_sync_package_cmd()
+        cmd += "%s ; " % self._gen_create_awss3cfg_cmd()
+        if job_id.startswith('comp'):
+            cmd += "%s ; " % self._gen_oss_sync_package_cmd_with_auth()
+        else:
+            cmd += "%s ; " % self._gen_oss_sync_package_cmd()
         return cmd
 
     def _gen_exec_cmd(self, roleName, index, entrypoint_func):
@@ -365,24 +439,39 @@ class OssStorageMixIn(StorageMixIn):
             path = value['path']
             if not self._is_oss_path(path):
                 raise Exception('Invalid S3 path: %s args_name: %s' % (path, name))
-            if value['filename']:
+            if value['filename'] is not None:
                 one_arg = ' --%s %s' % (name, os.path.join(path, value['filename']))
             else:
                 one_arg = ' --%s %s' % (name, path)
             args += one_arg.rstrip('/')
         return args
 
+    def __remove_http_prefix(self, path):
+        prefix = 'http://'
+        if path.startswith(prefix):
+            return path[len(prefix):]
+        else:
+            return path
+
     def _gen_storage_env(self):
         envs = []
-        s3_config = self.storageMode['config']
+        s3_config = self.avesjob.storage_config
+
         envs.append({"name": "AWS_ACCESS_KEY_ID", "value": s3_config['S3AccessKeyId']})
         envs.append({"name": "AWS_SECRET_ACCESS_KEY", "value": s3_config['S3SecretAccessKey']})
-        envs.append({"name": "S3_ENDPOINT", "value": s3_config['S3Endpoint']})
+        envs.append({"name": "S3_ENDPOINT", "value": self.__remove_http_prefix(s3_config['S3Endpoint'])})
         envs.append({"name": "S3_USE_HTTPS", "value": "0"})
+        # ISSUE:
+        # TF default log level=0. s3 aws lib log is set to verbose and in level 0 it will generate way to much logs.
+        # Set to 3 can solve this issue, but other useful tf log will also be suppressed, so we disable log level setting.
+        # See more info in below issue:
+        # https://github.com/tensorflow/tensorflow/issues/21898
+        #envs.append({"name": "TF_CPP_MIN_LOG_LEVEL", "value": "3"})
         return envs
 
 
-WRAPPER_SCRIPT_PATH = "http://ai-fileserver.jd.com/share/tools/aves/aves_run_wrapper.sh"
+# WRAPPER_SCRIPT_PATH = "http://ai-fileserver.jd.com/share/tools/aves/aves_run_wrapper.sh"
+WRAPPER_SCRIPT_PATH = FILESERVER_AVES_BASE_URL + "aves_run_wrapper.sh"
 WRAPPER_SCRIPT = os.path.basename(WRAPPER_SCRIPT_PATH)
 OSS_SYNC_BASE = os.path.join(CONTAINER_WORKSPACE, "oss_sync")
 CLEANUP_CMD = "/bin/rm -rf * .[!.]*"
@@ -435,10 +524,14 @@ class OssFileStorageMixIn(StorageMixIn):
         return volumes
 
     def _gen_workspace_prepare_cmd(self, roleName, index):
+        job_id = self.avesjob.job_id
         cmd = 'mkdir -p %s %s; cd %s ;' % (CONTAINER_WORKSPACE,
                 OSS_SYNC_BASE, CONTAINER_WORKSPACE)
-        cmd += "%s ; " % self._gen_create_s3cfg_cmd()
-        cmd += "%s ; " % self._gen_oss_sync_package_cmd()
+        cmd += "%s ; " % self._gen_create_awss3cfg_cmd()
+        if job_id.startswith('comp'):
+            cmd += "%s ; " % self._gen_oss_sync_package_cmd_with_auth()
+        else:
+            cmd += "%s ; " % self._gen_oss_sync_package_cmd()
         cmd += "wget %s ; " % WRAPPER_SCRIPT_PATH
         # use exec to swap last cmd with root process to handle SIGTERM
         cmd += "exec /bin/sh %s " % WRAPPER_SCRIPT
@@ -458,10 +551,10 @@ class OssFileStorageMixIn(StorageMixIn):
             if self.__is_compressed_file(src_path):
                 comp_file = os.path.basename(src_path)
                 # let's sync to ./ then unpack to dst_path
-                pre_cmd += "%s; " % self._gen_s3cmd_sync_cmd(src_path, './')
+                pre_cmd += "%s; " % self._gen_awss3_sync_cmd(src_path, './')
                 pre_cmd += "%s; " % self.__unpack_pkg_cmd(comp_file, dst_path)
             else:
-                pre_cmd += "%s; " % self._gen_s3cmd_sync_cmd(src_path, dst_path)
+                pre_cmd += "%s; " % self._gen_awss3_sync_cmd(src_path, dst_path)
 
         for name, value in self.avesjob.output_spec.items():
             pre_cmd += "mkdir %s; " % os.path.join(OSS_SYNC_BASE, name)
@@ -477,7 +570,7 @@ class OssFileStorageMixIn(StorageMixIn):
             path = value['path']
             src_path = os.path.join(OSS_SYNC_BASE, name, '')
             dst_path = os.path.join(path, '')
-            post_cmd += "%s; " % self._gen_s3cmd_sync_cmd(src_path, dst_path)
+            post_cmd += "%s; " % self._gen_awss3_sync_cmd(src_path, dst_path)
         if len(post_cmd.strip()) == 0:
             cmd = "--post_cmd \"%s\" ;" % CLEANUP_CMD
         else:
@@ -488,7 +581,7 @@ class OssFileStorageMixIn(StorageMixIn):
         args = ''
         for name, value in ioput_dict.items():
             filename = name
-            if value['filename']:
+            if value['filename'] is not None:
                 filename = os.path.join(name, value['filename'])
             if ioput_dict == self.inputSpec and self.__is_compressed_file(filename):
                 args += ' --%s %s' % (name, os.path.join(OSS_SYNC_BASE, name, ''))
@@ -506,7 +599,7 @@ class OssFileStorageMixIn(StorageMixIn):
 STORAGE_MIXIN_CLS_DICT = {
     "Filesystem": FsStorageMixIn,
     "OSS": OssStorageMixIn,
-    "OSS_File": OssFileStorageMixIn,
+    "OSSFile": OssFileStorageMixIn,
 }
 
 def get_storage_mixin_cls(storage_mode):
