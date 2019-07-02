@@ -215,7 +215,6 @@ class K8SWorker(models.Model):
     def _del_k8s_resource(self, conf):
         pass
 
-
     def _create_k8s_resource(self, conf):
         handler = exec_backend.get(conf['kind'])
         if handler:
@@ -241,9 +240,7 @@ class K8SWorker(models.Model):
         if ingress_conf:
             self._create_k8s_resource(ingress_conf)
 
-
     def stop(self):
-        
         pass
 
     def __str__(self):
