@@ -1,0 +1,223 @@
+#! /bin/bash
+
+function LOG() {
+    local level=$1
+    local msg=$2
+    echo "`date "+%Y-%m-%d %H:%M:%S"` $level: $msg"
+}
+function LOG_DEBUG() {
+    local msg=$1
+    LOG "DEBUG" "$msg"
+}
+
+function LOG_INFO() {
+    local msg=$1
+    LOG "INFO" "$msg"
+}
+
+function LOG_WARNING() {
+    local msg=$1
+    LOG "WARNING" "$msg"
+}
+
+function LOG_ERROR() {
+    local msg=$1
+    LOG "ERROR" "$msg"
+}
+
+
+function report_success() {
+    local msg=$1
+}
+
+function report_fail() {
+    local msg=$1
+    LOG_ERROR "$msg"
+    exit 1
+}
+
+
+# ------------------------------------------------------------------- #
+# read the options
+# ------------------------------------------------------------------- #
+TEMP=`getopt -o d:t: --long is_distributed:,distribute_type: -- "$@"`
+eval set -- "$TEMP"
+
+# extract options and their arguments into variables.
+is_distributed="no"
+distribute_type=""
+while true ; do
+    case "$1" in
+        -d|--is_distributed)
+            is_distributed=$2 ; shift 2 ;;
+        -t|--distribute_type)
+            distribute_type="$2"; shift 2 ;;
+        --) shift ; break ;;
+    esac
+done
+
+run_training="$@"
+
+# AVES_API_HOST=""
+# AVES_API_JOB_DIST_ENVS_URL=""
+# AVES_API_JOB_REPORT_URL=""
+# AVES_API_POD_REPORT_URL=""
+# AVES_API_TOKEN=""
+
+AVES_MAIN_NODE="${AVES_MAIN_NODE:-yes}"
+AVES_ENABLE_OSS="${AVES_ENABLE_OSS:-yes}"
+
+# AVES_JOB_ID="${AVES_JOB_ID}"
+# AVES_WORK_POD_ID="${AVES_WORK_POD_ID}"
+# AVES_WORK_USER="${AVES_WORK_USER:-root}"
+# AVES_WORK_PASS="${AVES_WORK_PASS:-root}"
+# AVES_WORK_ROLE="${AVES_WORK_ROLE:-worker}"
+# AVES_WORK_INDEX="${AVES_WORK_INDEX:-1}"
+
+
+# ------------------------------------------------------------------- #
+# Read distributed cluster info
+# 
+# For TF_PS:
+# AVES_TF_PS_HOSTS
+# AVES_TF_WORKER_HOSTS
+# 
+# For Horovod:
+# AVES_MPI_SSH_PORT
+# AVES_MPI_NP
+# AVES_MPI_HOST_LIST  (eg. hostIP1:4,hostIP2:4,hostIP3:4)
+# ------------------------------------------------------------------ # 
+if [ $is_distributed -a $is_distributed == "yes" ]; then
+    LOG_INFO "read cluster info ..."
+    [ -d /tmp/ ] || mkdir /tmp/
+
+    while :
+    do
+        O=$(python3 /aves_bin/aves_get_dist_envs.py /tmp/dist_envs.sh 2>&1)
+        RESULT=$?
+        if [ $RESULT -eq 0 ]; then
+            break
+        elif [ $RESULT -eq 2 ]; then
+            LOG_INFO "$O"
+            LOG_INFO "try again later ..."
+        else
+            LOG_INFO "$O"
+            report_fail "Fail to get cluster info"
+        fi
+        sleep 10
+    done
+
+    source /tmp/dist_envs.sh
+    cat /tmp/dist_envs.sh
+    echo ""
+fi
+
+# setup basic service
+# if [ $is_distributed == "yes" ]; then
+#     # Config SSH
+#     LOG_INFO "======== ENABLE SSH SERVER  ========"
+#     config_ssh.sh $AVES_WORK_USER $AVES_WORK_PASS || report_fail "Fail to setup ssh on $AVES_WORK_ROLE-$AVES_WORK_INDEX"
+# 
+#     if [ $AVES_MAIN_NODE == "yes" ]; then
+#         # Config SSH key authentication
+#         LOG_INFO "======== CONFIG SSH KEY AUTHENTICATION ========"
+#         # fabric xx
+#     fi
+# fi
+
+# ------------------------------------------------------------------ # 
+# setup aws config
+# ------------------------------------------------------------------ # 
+if [ $AVES_ENABLE_OSS -a $AVES_ENABLE_OSS == "yes" ]; then
+    LOG_INFO "create aws config ..."
+    bash /aves_bin/aves_config_aws.sh pai_oss $AVES_PAI_OSS_SEC_ID $AVES_PAI_OSS_SEC_KEY $AVES_PAI_OSS_END
+    if [ ! $? -eq 0 ]; then
+        report_fail "Fail to create aws config"
+    fi
+
+    bash /aves_bin/aves_config_aws.sh user_oss $AVES_USER_OSS_SEC_ID $AVES_USER_OSS_SEC_KEY $AVES_PAI_USER_END
+    if [ ! $? -eq 0 ]; then
+        report_fail "Fail to create aws config"
+    fi
+fi
+
+# ------------------------------------------------------------------ # 
+# Prepare workdir
+# 
+# source code  -- /AVES/src/
+# input data   -- /AVES/data/
+# output data  -- /AVES/output/
+# ------------------------------------------------------------------ # 
+LOG_INFO "prepare source code: $AVES_PROJ_SRC"
+
+aws s3 --endpoint-url=$AVES_USER_OSS_END --only-show-errors --page-size=100000000 --profile=user_oss sync $AVES_PROJ_SRC /AVES/src/
+if [ ! $? -eq 0 ]; then
+    report_fail "Fail to download source code: $AVES_PROJ_SRC"
+fi
+cd /AVES/src/
+
+LOG_INFO "prepare input data ..."
+{% for parami in data_params %}
+  {% if parami.storage == 'oss' and parami.type == 'input' %}
+    LOG_INFO "download data: {{ parami.src }}"
+    aws s3 --endpoint-url={{ parami.endpoint }} --only-show-errors --page-size=100000000 --profile=user_oss sync {{ parami.src }} {{ parami.dst}} || report_fail "Fail to sync {{ parami.src }}"
+    if [ ! $? -eq 0 ]; then
+        report_fail "Fail to download input data: {{ parami.src }}"
+    fi
+  {% endif %}
+{% endfor %}
+
+# ------------------------------------------------------------------ # 
+# Start Running
+# ------------------------------------------------------------------ # 
+if [ $is_distributed == "no" ]; then
+    $run_training &
+    PID=$!
+elif [ $distribute_type == "TF_PS" ]; then
+    LOG_INFO "start training: $run_training --ps_hosts ${AVES_TF_PS_HOSTS} --worker_hosts ${AVES_TF_WORKER_HOSTS} --job_name $AVES_WORK_ROLE --task_index $AVES_WORK_INDEX"
+    echo ""
+    $run_training --ps_hosts ${AVES_TF_PS_HOSTS} --worker_hosts ${AVES_TF_WORKER_HOSTS} --job_name $AVES_WORK_ROLE --task_index $AVES_WORK_INDEX &
+    PID=$!
+elif [ $distribute_type == "HOROVOD" ]; then
+    if [ $AVES_MAIN_NODE == "yes" ]; then
+        sshd
+        OLD_IFS="$IFS"
+        IFS=","
+        host_arry=($AVES_MPI_HOST_LIST)
+        IFS="$OLD_IFS"
+        for host_i in ${host_arry[@]}
+        do
+            while 1
+            do
+                host_i_ip=${host_i%:*}
+                nc -z $host_i_ip $AVES_MPI_SSH_PORT
+                if [ $? == 0 ]; then
+                    break
+                else
+                    LOG_INFO "Node $host_i_ip is not ready ..."
+                fi
+                sleep 10
+            done
+        done
+
+        cmd_line="mpirun -np $AVES_MPI_NP -H $AVES_MPI_HOST_LIST --allow-run-as-root -bind-to none -map-by slot -mca plm_rsh_args -p $AVES_MPI_SSH_PORT -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH -x PATH"
+        LOG_INFO "start training: $cmd_line"
+
+        mpirun -np $AVES_MPI_NP -H $AVES_MPI_HOST_LIST \
+            --allow-run-as-root \
+            -bind-to none -map-by slot \
+            -mca plm_rsh_args "-p $AVES_MPI_SSH_PORT" \
+            -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH -x PATH &
+        PID=$!
+    else
+        exec sshd -D
+    fi
+else
+    [ $AVES_MAIN_NODE == "yes" ] && report_fail "Invalid distribute type: $distribute_type"
+fi
+
+wait $PID
+
+# ------------------------------------------------------------------ # 
+# Save output to oss()
+# ------------------------------------------------------------------ # 
