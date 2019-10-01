@@ -15,8 +15,13 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from django.conf.urls import url
+from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('job_manager.urls'))
 ]
+
+urlpatterns += staticfiles_urlpatterns()
+urlpatterns = [url('^aves2/', include(urlpatterns))]
