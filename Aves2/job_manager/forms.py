@@ -6,5 +6,17 @@ class AvesJobForm(ModelForm):
     class Meta:
         model = AvesJob
         fields = (
-            'job_id', 'username', 'namespace', 'engine', 'image', 'resource_spec', 'envs', 'input_spec', 'output_spec', 'log_dir', 'package_uri', 'storage_config'
+            'job_id',
+            'username',
+            'namespace',
+            'engine',
+            'image',
+            'storage_mode',
+            'storage_config',
+            'resource_spec',
+            'package_uri',
+            'input_spec',
+            'output_spec',
+            'envs',
+            'log_dir'
         )
