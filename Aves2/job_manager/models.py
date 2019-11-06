@@ -2,18 +2,18 @@ import re
 import os
 import io
 import copy
-import requests
-import logging
 import time
+import logging
+import requests
 from collections import defaultdict
 
 from django.db import models
-from django_mysql.models import JSONField
 from django.conf import settings
+from django_mysql.models import JSONField
 
-from .utils.work_builder import get_train_maker, get_storage_mixin_cls
-from k8s_client.k8s_client import k8s_client
-from job_manager.conf import exec_backend
+from .utils.work_builder.base_maker import BaseMaker
+from kubernetes_client.k8s_objects import make_pod, make_configmap
+from kubernetes_client.client import k8s_client
 
 
 logger = logging.getLogger('aves2')
@@ -47,18 +47,24 @@ class AvesJob(models.Model):
         ('CANCELED', '已取消'),
     )
 
+    DISTRIBUTE_TYPES = (
+        ('TF_PS', 'TF_PS'),
+        ('HOROVOD', 'HOROVOD')
+    )
+
     id = models.AutoField(primary_key=True)
     username = models.CharField(max_length=128, blank=False, null=False, default='')
     namespace = models.CharField(max_length=64, blank=False, null=False, default='default')
-    job_id = models.CharField(max_length=128, blank=False, null=False, default='jobid')
+    job_id = models.CharField(max_length=128, blank=False, null=False, default='jobid', unique=True)
     engine = models.CharField(max_length=64, blank=False, null=False)
-    is_distribute = models.BooleanField(blank=True, null=False, default=True)
+    is_distribute = models.BooleanField(blank=True, null=False, default=False)
+    distribute_type = models.CharField(max_length=64, blank=True, null=True, choices=DISTRIBUTE_TYPES)
     # forcebot: 0上报mq，1不上报（测试模式)
     # debug: 是否开发模式，1，不删除job
     image = models.CharField(max_length=512, blank=False, null=False)
     package_uri = models.CharField(max_length=512, blank=True, null=False, default='')  # 是什么？
     resource_spec = JSONField(blank=False, default=json_field_default)
-    storage_mode = models.CharField(max_length=32, blank=False, null=False, default='Filesystem')
+    storage_mode = models.CharField(max_length=32, blank=False, null=False, default='OSSFile')
     storage_config = JSONField(blank=True, null=False, default=json_field_default)
     envs = JSONField(blank=True, default=json_field_default)
     input_spec = JSONField(blank=False, default=json_field_default)
@@ -66,6 +72,7 @@ class AvesJob(models.Model):
     log_dir = models.CharField(max_length=512, blank=True, null=False, default='')  # fs模式则指定共享存储目录/s3模式指定s3路径
     mount_node_storage = models.BooleanField(blank=True, null=False, default=False)  # 是否挂载物理节点本地盘
     status = models.CharField(max_length=16, blank=True, null=False, choices=STATUS_MAP, default='NEW')
+    token = models.CharField(max_length=16, blank=True, null=False, default='')
     create_time = models.DateTimeField(auto_now_add=True)
     update_time = models.DateTimeField(auto_now=True)
 
@@ -106,23 +113,6 @@ class AvesJob(models.Model):
             data.pop('debug')
         return data
 
-    def cancel_avesjob(self):
-        """ Cancel avesjob and del related k8s resources
-        """
-        err_msg = ''
-        result = True
-
-        for kind, handler in exec_backend.items():
-            l_rs, rcs = handler['list']({'jobId': self.job_id}, namespace=self.namespace)
-            if l_rs and rcs:
-                for rc_i in rcs:
-                    d_rs, d_msg = handler['delete'](rc_i.metadata.name, namespace=self.namespace)
-                    if not d_rs:
-                        err_msg += 'Failed to delete %s=%s Reason=%s ;' % (kind, rc_i.metadata.name, d_msg)
-                        result = False
-
-        return result, err_msg
-
     @property
     def merged_id(self):
         return '{0}-{1}-{2}'.format(self.username, self.namespace, self.job_id)
@@ -137,27 +127,68 @@ class AvesJob(models.Model):
         k8s_workers = []
         for role, spec in self.resource_spec.items():
             for role_index in range(int(spec.get('count', 1))):
+                if not self.is_distribute:
+                    is_main_node = True
+                elif role in ['ps', 'master'] and role_index == 0:
+                    is_main_node = True
+                else:
+                    is_main_node = False
                 worker = K8SWorker(
                     username=self.username,
                     namespace=self.namespace,
                     engine=self.engine,
                     avesjob=self,
                     worker_name=self._make_k8s_worker_name(role, role_index),
+                    is_main_node = is_main_node,
                     avesrole=role,
                     role_index=role_index,
                     cpu_request=spec.get('cpu', 4),
                     cpu_limit=spec.get('cpu', 4),
                     mem_request=spec.get('memory', '8Gi').strip('Gi'),
                     mem_limit=spec.get('memory', '8Gi').strip('Gi'),
-                    gpu_request=spec.get('nvidia.com/gpu'),
+                    gpu_request=spec.get('gpu'),
                     entrypoint=spec.get('entry_point'),
                     args=spec.get('args', [])
                 )
                 k8s_workers.append(worker)
         K8SWorker.objects.bulk_create(k8s_workers)
 
-    def update_status(self):
-        pass
+    def start(self):
+        for worker_i in self.k8s_worker.all():
+            rt = worker_i.start()
+            if not rt:
+                worker_i.stop()
+                return False
+        return True
+
+    def cancel(self):
+        """ Cancel avesjob and del related k8s resources
+        """
+        for worker_i in self.k8s_worker.all():
+            worker_i.stop()
+
+    def clean(self):
+        for worker_i in self.k8s_worker.all():
+            worker_i.stop()
+
+    def get_dist_envs(self):
+        if self.distribute_type == 'TF_PS':
+            return self._get_dist_envs_for_tfps()
+        if self.distribute_type == 'HOROVOD':
+            return self._get_dist_envs_for_horovod()
+        else:
+            return {}
+
+    def _get_dist_envs_for_tfps(self):
+        all_workers = self.k8s_worker.all()
+        ps = [str(i.id) for i in all_workers if i.avesrole == 'ps']
+        workers = [str(i.id) for i in all_workers if i.avesrole == 'worker']
+
+        rt, pods = k8s_client.get_namespaced_pod_list(self.namespace, selector={'jobId': self.job_id})
+        ps_ips = ['{0}:2222'.format(i.status.pod_ip) for i in pods if i.metadata.labels.get('workerId') in ps]
+        worker_ips = [ '{0}:2222'.format(i.status.pod_ip) for i in pods if i.metadata.labels.get('workerId') in workers]
+
+        return {'AVES_TF_PS_HOSTS': ','.join(ps_ips), 'AVES_TF_WORKER_HOSTS': ','.join(worker_ips)}
 
     def __str__(self):
         return self.merged_id
@@ -179,6 +210,7 @@ class K8SWorker(models.Model):
     avesjob = models.ForeignKey('AvesJob', on_delete=models.CASCADE, related_name='k8s_worker', blank=False, null=False)
     # worker_name = <avesjob.merged_id>-<avesrole>-<role_index>
     worker_name = models.CharField(max_length=256, blank=False, null=False, default='')
+    is_main_node = models.BooleanField(blank=True, null=False, default=True)
     avesrole = models.CharField(max_length=16, blank=False, null=False, default='worker')
     role_index = models.IntegerField(blank=False, null=False, default=0)
     cpu_request = models.IntegerField('REQCPU', blank=False, null=False, default=4)
@@ -190,58 +222,46 @@ class K8SWorker(models.Model):
     args = JSONField(blank=True, null=False, default=json_field_default_list)
     ports = JSONField(blank=True, null=False, default=json_field_default_list)
     k8s_status = models.CharField(max_length=32, blank=True, null=True, default='')
+    worker_ip = models.CharField(max_length=32, blank=True, null=True)
     worker_json = JSONField(blank=True, null=True, default=json_field_default)
     service_json = JSONField(blank=True, null=True, default=json_field_default)
     ingress_json = JSONField(blank=True, null=True, default=json_field_default)
     create_time = models.DateTimeField(auto_now_add=True)
     update_time = models.DateTimeField(auto_now=True)
 
-    def make_k8s_conf(self, save=True):
-        conf_maker = type(
-            'conf_maker',
-            (
-                get_train_maker(self.engine),
-                get_storage_mixin_cls(self.avesjob.storage_mode)
-            ),
-            {}
-        )(self.avesjob, self)
-        worker_conf = conf_maker.gen_k8s_worker_conf()
-        svc_conf = conf_maker.gen_k8s_svc_conf()
-        self.worker_json = worker_conf
-        self.service_json = svc_conf
-        if save:
-            self.save()
-
-    def _del_k8s_resource(self, conf):
-        pass
-
-    def _create_k8s_resource(self, conf):
-        handler = exec_backend.get(conf['kind'])
-        if handler:
-            try:
-                res, err_msg = handler['create'](config=conf, namespace=self.namespace)
-            except Exception as e:
-                logger.error('Create k8s resource failed, kind: {0}, name: {1}'.format(conf['kind'], conf['metadata']['name']))
-                _del_k8s_resource(self, conf)
-        else:
-            logger.error("Unsupported resource kind: {0}, name: {1}".format(conf['kind'], conf['metadata']['name']))
-
     def start(self):
-        worker_conf = self.worker_json
-        svc_conf = self.service_json
-        ingress_conf = self.ingress_json
+        m = BaseMaker(self.avesjob, self)
 
-        if worker_conf:
-            self._create_k8s_resource(worker_conf)
+        configmap = make_configmap(*m.gen_confdata_aves_scripts())
+        k8s_client.delete_namespaced_configmap(configmap.metadata.name, self.namespace)
+        rt, conf = k8s_client.create_namespaced_configmap(configmap, self.namespace)
 
-        if svc_conf:
-            self._create_k8s_resource(svc_conf)
-
-        if ingress_conf:
-            self._create_k8s_resource(ingress_conf)
+        pod = make_pod(
+                  name=self.worker_name,
+                  cmd=m.gen_command(),
+                  args=m.gen_args(),
+                  image=m.gen_image(),
+                  env=m.gen_envs(),
+                  labels=m.gen_pod_labels(),
+                  port_list=[],
+                  volumes=m.gen_volumes(),
+                  volume_mounts=m.gen_volume_mounts(),
+                  cpu_limit=self.cpu_request,
+                  cpu_guarantee=self.cpu_limit,
+                  mem_limit='{mem}Gi'.format(mem=self.mem_request),
+                  mem_guarantee='{mem}Gi'.format(mem=self.mem_limit),
+                  gpu_limit=self.gpu_request,
+                  gpu_guarantee=self.gpu_request,
+              )
+        rt, pod_obj = k8s_client.create_namespaced_pod(pod, self.namespace)
+        return rt
 
     def stop(self):
-        pass
+        m = BaseMaker(self.avesjob, self)
+        configmap = make_configmap(*m.gen_confdata_aves_scripts())
+
+        k8s_client.delete_namespaced_pod(self.worker_name, self.namespace)
+        k8s_client.delete_namespaced_configmap(configmap.metadata.name, self.namespace)
 
     def __str__(self):
         return self.worker_name
