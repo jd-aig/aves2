@@ -27,3 +27,7 @@ def gen_aves_dist_envs_script():
     with open(os.path.join(tpl_path, 'aves_get_dist_envs.py')) as f:
         return f.read()
 
+def gen_aves_report_script():
+    tpl_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'templates')
+    with open(os.path.join(tpl_path, 'aves_report.py')) as f:
+        return f.read()

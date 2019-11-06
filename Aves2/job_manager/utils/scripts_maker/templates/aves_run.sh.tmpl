@@ -27,12 +27,13 @@ function LOG_ERROR() {
 
 
 function report_success() {
-    local msg=$1
+    python3 /aves_bin/aves_report.py "FINISHED" "job finished"
 }
 
 function report_fail() {
     local msg=$1
     LOG_ERROR "$msg"
+    python3 /aves_bin/aves_report.py "FAILURE" "$msg"
     exit 1
 }
 
@@ -149,6 +150,9 @@ fi
 # output data  -- /AVES/output/
 # ------------------------------------------------------------------ # 
 LOG_INFO "prepare source code: $AVES_PROJ_SRC"
+[ ! -d /AVES/ ] && mkdir /AVES
+mkdir /AVES/data/
+mkdir /AVES/output/
 
 aws s3 --endpoint-url=$AVES_USER_OSS_END --only-show-errors --page-size=100000000 --profile=user_oss sync $AVES_PROJ_SRC /AVES/src/
 if [ ! $? -eq 0 ]; then
@@ -165,12 +169,16 @@ LOG_INFO "prepare input data ..."
         report_fail "Fail to download input data: {{ parami.src }}"
     fi
   {% endif %}
+  {% if parami.type == 'output' %}
+    mkdir -p {{ parami.dst }}
+  {% endif %}
 {% endfor %}
 
 # ------------------------------------------------------------------ # 
 # Start Running
 # ------------------------------------------------------------------ # 
 if [ $is_distributed == "no" ]; then
+    LOG_INFO "start training: $run_training"
     $run_training &
     PID=$!
 elif [ $distribute_type == "TF_PS" ]; then
@@ -217,7 +225,18 @@ else
 fi
 
 wait $PID
+job_ret=$?
 
 # ------------------------------------------------------------------ # 
 # Save output to oss()
 # ------------------------------------------------------------------ # 
+
+
+# ------------------------------------------------------------------ #
+# Report to aves
+# ------------------------------------------------------------------ #
+if [ $job_ret -eq 0 ]; then
+    report_success
+else
+    report_fail "job exit with non-zero exit code"
+fi
