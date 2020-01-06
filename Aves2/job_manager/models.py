@@ -125,11 +125,14 @@ class AvesJob(models.Model):
             raise Exception('Not Allowed')
 
         k8s_workers = []
+        no_master_role = True if 'master' not in self.resource_spec.keys() else False
         for role, spec in self.resource_spec.items():
             for role_index in range(int(spec.get('count', 1))):
                 if not self.is_distribute:
                     is_main_node = True
                 elif role in ['ps', 'master'] and role_index == 0:
+                    is_main_node = True
+                elif role in ['worker'] and no_master_role:
                     is_main_node = True
                 else:
                     is_main_node = False
@@ -189,6 +192,18 @@ class AvesJob(models.Model):
         worker_ips = [ '{0}:2222'.format(i.status.pod_ip) for i in pods if i.metadata.labels.get('workerId') in workers]
 
         return {'AVES_TF_PS_HOSTS': ','.join(ps_ips), 'AVES_TF_WORKER_HOSTS': ','.join(worker_ips)}
+
+    def _get_dist_envs_for_horovod(self):
+        all_workers = self.k8s_worker.all()
+        np = 0
+        hosts = []
+        rt, pods = k8s_client.get_namespaced_pod_list(self.namespace, selector={'jobId': self.job_id})
+        pods_map = {int(i.metadata.labels.get('workerId')): i for i in pods}
+        for w in all_workers:
+            pod = pods_map[w.id]
+            np += w.gpu_request
+            hosts.append('{}:{}'.format(pod.status.pod_ip, w.gpu_request))
+        return {'AVES_MPI_NP': np, 'AVES_MPI_HOST_LIST': ','.join(hosts)}
 
     def __str__(self):
         return self.merged_id

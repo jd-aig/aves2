@@ -188,7 +188,7 @@ elif [ $distribute_type == "TF_PS" ]; then
     PID=$!
 elif [ $distribute_type == "HOROVOD" ]; then
     if [ $AVES_MAIN_NODE == "yes" ]; then
-        sshd
+        /usr/sbin/sshd
         OLD_IFS="$IFS"
         IFS=","
         host_arry=($AVES_MPI_HOST_LIST)
@@ -208,17 +208,18 @@ elif [ $distribute_type == "HOROVOD" ]; then
             done
         done
 
-        cmd_line="mpirun -np $AVES_MPI_NP -H $AVES_MPI_HOST_LIST --allow-run-as-root -bind-to none -map-by slot -mca plm_rsh_args -p $AVES_MPI_SSH_PORT -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH -x PATH"
+        cmd_line="mpirun -np $AVES_MPI_NP -H $AVES_MPI_HOST_LIST --allow-run-as-root -bind-to none -map-by slot -mca plm_rsh_args -p $AVES_MPI_SSH_PORT -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH -x PATH $run_training"
         LOG_INFO "start training: $cmd_line"
 
         mpirun -np $AVES_MPI_NP -H $AVES_MPI_HOST_LIST \
             --allow-run-as-root \
             -bind-to none -map-by slot \
             -mca plm_rsh_args "-p $AVES_MPI_SSH_PORT" \
-            -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH -x PATH &
+            -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH -x PATH \
+            $run_training &
         PID=$!
     else
-        exec sshd -D
+        exec /usr/sbin/sshd -D
     fi
 else
     [ $AVES_MAIN_NODE == "yes" ] && report_fail "Invalid distribute type: $distribute_type"
