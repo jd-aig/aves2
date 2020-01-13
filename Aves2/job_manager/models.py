@@ -122,6 +122,7 @@ class AvesJob(models.Model):
 
     def make_k8s_workers(self):
         if self.k8s_worker.count() > 0:
+            logger.error('{0}: Fail to make k8s workers, already exist'.format(self))
             raise Exception('Not Allowed')
 
         k8s_workers = []
@@ -156,21 +157,35 @@ class AvesJob(models.Model):
                 k8s_workers.append(worker)
         K8SWorker.objects.bulk_create(k8s_workers)
 
+    def update_status(self, status, msg=''):
+        # TODO: send signal, send message
+        self.status = status
+        self.save()
+
     def start(self):
+        """ Start aves job
+
+        :return: (True/False, err_msg)
+        """
         for worker_i in self.k8s_worker.all():
-            rt = worker_i.start()
-            if not rt:
-                worker_i.stop()
-                return False
-        return True
+            pod, err = worker_i.start()
+            if err:
+                return False, err
+        return True, None
 
     def cancel(self):
         """ Cancel avesjob and del related k8s resources
+
+        :return: (True/False, err_msg)
         """
         for worker_i in self.k8s_worker.all():
-            worker_i.stop()
+            rt = worker_i.stop()
+            if not rt:
+                return False, '{0}: Fail to stop work {1}'.format(self, worker_i)
+        return True, None
 
-    def clean(self):
+    def clean_work(self):
+        logger.info('{0}: clean job. job workers will be cleaned'.format(self))
         for worker_i in self.k8s_worker.all():
             worker_i.stop()
 
@@ -187,7 +202,7 @@ class AvesJob(models.Model):
         ps = [str(i.id) for i in all_workers if i.avesrole == 'ps']
         workers = [str(i.id) for i in all_workers if i.avesrole == 'worker']
 
-        rt, pods = k8s_client.get_namespaced_pod_list(self.namespace, selector={'jobId': self.job_id})
+        pods, msg = k8s_client.get_namespaced_pod_list(self.namespace, selector={'jobId': self.job_id})
         ps_ips = ['{0}:2222'.format(i.status.pod_ip) for i in pods if i.metadata.labels.get('workerId') in ps]
         worker_ips = [ '{0}:2222'.format(i.status.pod_ip) for i in pods if i.metadata.labels.get('workerId') in workers]
 
@@ -197,7 +212,7 @@ class AvesJob(models.Model):
         all_workers = self.k8s_worker.all()
         np = 0
         hosts = []
-        rt, pods = k8s_client.get_namespaced_pod_list(self.namespace, selector={'jobId': self.job_id})
+        pods, msg = k8s_client.get_namespaced_pod_list(self.namespace, selector={'jobId': self.job_id})
         pods_map = {int(i.metadata.labels.get('workerId')): i for i in pods}
         for w in all_workers:
             pod = pods_map[w.id]
@@ -218,6 +233,16 @@ class AvesJob(models.Model):
 class K8SWorker(models.Model):
     """
     """
+    STATUS_MAP = (
+        ('NEW', '新建'),
+        ('STARTING', '启动中'),
+        ('PENDING', '等待中'),
+        ('RUNNING', '运行中'),
+        ('FINISHED', '已结束'),
+        ('FAILURE', '已失败'),
+        ('CANCELED', '已取消'),
+    )
+
     id = models.AutoField(primary_key=True)
     username = models.CharField(max_length=128, blank=False, null=False, default='')
     namespace = models.CharField(max_length=32, blank=False, null=False)
@@ -236,7 +261,7 @@ class K8SWorker(models.Model):
     entrypoint = models.CharField(max_length=512, blank=True, null=False, default='')
     args = JSONField(blank=True, null=False, default=json_field_default_list)
     ports = JSONField(blank=True, null=False, default=json_field_default_list)
-    k8s_status = models.CharField(max_length=32, blank=True, null=True, default='')
+    k8s_status = models.CharField(max_length=32, blank=True, null=False, choices=STATUS_MAP, default='NEW')
     worker_ip = models.CharField(max_length=32, blank=True, null=True)
     worker_json = JSONField(blank=True, null=True, default=json_field_default)
     service_json = JSONField(blank=True, null=True, default=json_field_default)
@@ -245,11 +270,15 @@ class K8SWorker(models.Model):
     update_time = models.DateTimeField(auto_now=True)
 
     def start(self):
+        """ Start k8s worker pod
+
+        :return: result, err_msg
+        """
         m = BaseMaker(self.avesjob, self)
 
         configmap = make_configmap(*m.gen_confdata_aves_scripts())
         k8s_client.delete_namespaced_configmap(configmap.metadata.name, self.namespace)
-        rt, conf = k8s_client.create_namespaced_configmap(configmap, self.namespace)
+        conf, err = k8s_client.create_namespaced_configmap(configmap, self.namespace)
 
         pod = make_pod(
                   name=self.worker_name,
@@ -268,15 +297,28 @@ class K8SWorker(models.Model):
                   gpu_limit=self.gpu_request,
                   gpu_guarantee=self.gpu_request,
               )
-        rt, pod_obj = k8s_client.create_namespaced_pod(pod, self.namespace)
-        return rt
+        pod_obj, err = k8s_client.create_namespaced_pod(pod, self.namespace)
+        rt = pod_obj is not None
+        return rt, err
 
     def stop(self):
+        """ Stop k8s worker pod
+
+        :return: result, err_msg
+        """
+        logger.info('delete job pod: {0}'.format(self))
         m = BaseMaker(self.avesjob, self)
         configmap = make_configmap(*m.gen_confdata_aves_scripts())
 
-        k8s_client.delete_namespaced_pod(self.worker_name, self.namespace)
-        k8s_client.delete_namespaced_configmap(configmap.metadata.name, self.namespace)
+        st1, msg1 = k8s_client.delete_namespaced_pod(self.worker_name, self.namespace)
+        st2, msg2 = k8s_client.delete_namespaced_configmap(configmap.metadata.name, self.namespace)
+        msg = None if not(msg1 or msg2) else '{0}\n{1}'.format(msg1, msg2)
+        return st1 and st2, msg
+
+    def update_status(self, status, msg=''):
+        # TODO: replace k8s status with status
+        self.k8s_status = status
+        self.save()
 
     def __str__(self):
         return self.worker_name

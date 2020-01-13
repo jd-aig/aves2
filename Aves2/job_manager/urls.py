@@ -18,11 +18,12 @@ from django.conf.urls import url
 
 from rest_framework.routers import DefaultRouter
 
-from job_manager.views import AvesJobViewSet
+from job_manager.views import AvesJobViewSet, AvesWorkerViewSet
 
 
 router = DefaultRouter()
 router.register(r'aves_job', AvesJobViewSet, base_name="aves_job")
+router.register(r'aves_worker', AvesWorkerViewSet, base_name="aves_worker")
 
 urlpatterns = [
 ]

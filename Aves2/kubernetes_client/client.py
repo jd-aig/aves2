@@ -1,3 +1,5 @@
+import codecs
+import json
 import logging
 from kubernetes import client, config, watch
 from kubernetes.client.rest import ApiException
@@ -17,12 +19,18 @@ class K8SClient(object):
     def handle_api_exception(fn):
         def fn_wrap(*args, **kwargs):
             try:
-                # fn returns:  [True, object] or [False, err_msg]
+                # fn returns:  [response, msg]
                 return fn(*args, **kwargs)
             except ApiException as e:
-                err_msg = 'Calling %s got exception %s' % (fn, str(e))
-                logger.error(err_msg)
-                return False, err_msg
+                logger.error('Calling {0} got exception'.format(fn) , exc_info=True)
+                try:
+                    # msg_str = codecs.decode(e.body, "unicode_escape")
+                    msg_str = e.body.replace(r'\"', '')
+                    err_msg = json.loads(msg_str)['message']
+                except Exception:
+                    logger.error('Fail to parse k8s api exception', exc_info=True)
+                    err_msg = 'unknown'
+                return None, err_msg
         return fn_wrap
 
     def handle_api_exception_with_not_found(fn):
@@ -34,10 +42,10 @@ class K8SClient(object):
                 if e.status == 404:
                     # not found, just return True
                     logger.info("%s not found" % (fn))
-                    return True, None
+                    return None, None
                 err_msg = 'Calling %s got exception %s' % (fn, str(e))
                 logger.error(err_msg)
-                return False, err_msg
+                return None, err_msg
         return fn_wrap
 
     @handle_api_exception
@@ -45,13 +53,13 @@ class K8SClient(object):
         api = client.CoreV1Api()
         logger.info("create configmap in namespace {0}: {1}".format(namespace, configmap_manifest))
         result = api.create_namespaced_config_map(namespace, configmap_manifest, pretty=True)
-        return True, result
+        return result, None
 
     @handle_api_exception_with_not_found
     def delete_namespaced_configmap(self, name, namespace):
         api = client.CoreV1Api()
         result = api.delete_namespaced_config_map(name, namespace)
-        return True, None
+        return result, None
 
     @handle_api_exception
     def create_namespaced_pod(self, pod_manifest, namespace):
@@ -59,14 +67,13 @@ class K8SClient(object):
 
         :param config : dict, k8s config
         :param namespace:
-        :return: [True, kubernetes.client.models.v1_pod.V1Pod]
-                 or [False, err_msg]
+        :return: [api_response, errmsg]
         """
         api = client.CoreV1Api()
         result = api.create_namespaced_pod(namespace, pod_manifest)
 
         logger.debug("create pod succeeded result: %s" % result)
-        return True, result
+        return result, None
 
     def _build_condition(self, selector=None):
         if selector is None:
@@ -101,7 +108,7 @@ class K8SClient(object):
         result = api.delete_namespaced_pod(name, namespace, body=body)
 
         logger.info("delete_namespaced_pod name:%s succeeded" % (name))
-        return True, None
+        return result, None
 
     @handle_api_exception
     def get_namespaced_pod_list(self, namespace, selector=None):
@@ -115,7 +122,7 @@ class K8SClient(object):
             success, condition = self._build_condition(selector=selector)
             if not success:
                 err_msg = condition
-                return False, err_msg
+                return None, err_msg
 
         api = client.CoreV1Api()
         if condition == None:
@@ -123,7 +130,7 @@ class K8SClient(object):
         else:
             result = api.list_namespaced_pod(namespace, label_selector=condition, watch=False)
 
-        return True, result.items
+        return result.items, None
 
 
 k8s_client = K8SClient()

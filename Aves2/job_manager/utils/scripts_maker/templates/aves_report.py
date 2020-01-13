@@ -8,12 +8,21 @@ import requests
 
 AVES_API_HOST = os.environ['AVES_API_HOST']
 AVES_API_JOB_REPORT_URL = os.environ['AVES_API_JOB_REPORT_URL']
+AVES_API_JOB_STATUS_REPORT_URL = os.environ['AVES_API_JOB_STATUS_REPORT_URL']
+AVES_API_WORKER_STATUS_REPORT_URL = os.environ['AVES_API_WORKER_STATUS_REPORT_URL']
 
 
 if __name__ == '__main__':
-    url = os.path.join(AVES_API_HOST, AVES_API_JOB_REPORT_URL)
-    status = sys.argv[1]
-    msg = sys.argv[2]
+    report_type = sys.argv[1]  # job_status/worker_status
+    status = sys.argv[2]
+    msg = sys.argv[3]
+
+    if report_type == 'worker_status':
+        url = os.path.join(AVES_API_HOST, AVES_API_WORKER_STATUS_REPORT_URL)
+    elif report_type == "job_status":
+        url = os.path.join(AVES_API_HOST, AVES_API_JOB_STATUS_REPORT_URL)
+    else:
+        url = os.path.join(AVES_API_HOST, AVES_API_JOB_REPORT_URL)
 
     data = {
         'status': status,
@@ -29,6 +38,9 @@ if __name__ == '__main__':
         retry -= 1
         try:
             r = requests.get(url, params=data, timeout=10)
+            if not r.ok:
+                raise Exception(r.text)
+            break
         except Exception as e:
             print('Fail to report, try again 10 seconds later ...')
             print(e)

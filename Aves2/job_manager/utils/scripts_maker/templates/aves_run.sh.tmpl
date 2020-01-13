@@ -5,6 +5,7 @@ function LOG() {
     local msg=$2
     echo "`date "+%Y-%m-%d %H:%M:%S"` $level: $msg"
 }
+
 function LOG_DEBUG() {
     local msg=$1
     LOG "DEBUG" "$msg"
@@ -26,16 +27,35 @@ function LOG_ERROR() {
 }
 
 
-function report_success() {
-    python3 /aves_bin/aves_report.py "FINISHED" "job finished"
+function report_worker_status() {
+    local status=$1
+    local msg=$2
+    LOG_INFO "report worker status: $status. $msg"
+    python3 /aves_bin/aves_report.py "worker_status" "$status" "$msg"
 }
 
-function report_fail() {
+function report_job_status() {
+    local status=$1
+    local msg=$2
+    LOG_INFO "report job status: $status. $msg"
+    python3 /aves_bin/aves_report.py "job_status" "$status" "$msg"
+}
+
+function report_job_success() {
+    python3 /aves_bin/aves_report.py "job_result" "FINISHED" "job finished"
+}
+
+function report_job_fail() {
     local msg=$1
     LOG_ERROR "$msg"
-    python3 /aves_bin/aves_report.py "FAILURE" "$msg"
+    python3 /aves_bin/aves_report.py "job_result" "FAILURE" "$msg"
     exit 1
 }
+
+# ------------------------------------------------------------------- #
+# Report worker running
+# ------------------------------------------------------------------- #
+report_worker_status "RUNNING" "worker is running"
 
 
 # ------------------------------------------------------------------- #
@@ -62,7 +82,6 @@ run_training="$@"
 # AVES_API_HOST=""
 # AVES_API_JOB_DIST_ENVS_URL=""
 # AVES_API_JOB_REPORT_URL=""
-# AVES_API_POD_REPORT_URL=""
 # AVES_API_TOKEN=""
 
 AVES_MAIN_NODE="${AVES_MAIN_NODE:-yes}"
@@ -103,7 +122,9 @@ if [ $is_distributed -a $is_distributed == "yes" ]; then
             LOG_INFO "try again later ..."
         else
             LOG_INFO "$O"
-            report_fail "Fail to get cluster info"
+            err_msg="Fail to get cluster info"
+            report_worker_status "FAILURE" "$err_msg"
+            report_job_fail "$err_msg"
         fi
         sleep 10
     done
@@ -111,13 +132,19 @@ if [ $is_distributed -a $is_distributed == "yes" ]; then
     source /tmp/dist_envs.sh
     cat /tmp/dist_envs.sh
     echo ""
+
+    # All workers are ready. update job status as running
+    [ $AVES_MAIN_NODE == "yes" ] && report_job_status "RUNNING" "job is running"
+else
+    # Non dist mode, single worker is ready. update job status as running
+    report_job_status "RUNNING" "job is running"
 fi
 
 # setup basic service
 # if [ $is_distributed == "yes" ]; then
 #     # Config SSH
 #     LOG_INFO "======== ENABLE SSH SERVER  ========"
-#     config_ssh.sh $AVES_WORK_USER $AVES_WORK_PASS || report_fail "Fail to setup ssh on $AVES_WORK_ROLE-$AVES_WORK_INDEX"
+#     config_ssh.sh $AVES_WORK_USER $AVES_WORK_PASS || report_job_fail "Fail to setup ssh on $AVES_WORK_ROLE-$AVES_WORK_INDEX"
 # 
 #     if [ $AVES_MAIN_NODE == "yes" ]; then
 #         # Config SSH key authentication
@@ -133,12 +160,18 @@ if [ $AVES_ENABLE_OSS -a $AVES_ENABLE_OSS == "yes" ]; then
     LOG_INFO "create aws config ..."
     bash /aves_bin/aves_config_aws.sh pai_oss $AVES_PAI_OSS_SEC_ID $AVES_PAI_OSS_SEC_KEY $AVES_PAI_OSS_END
     if [ ! $? -eq 0 ]; then
-        report_fail "Fail to create aws config"
+        err_msg="Fail to create aws config"
+        # TODO: every worker will send job result?
+        report_worker_status "FAILURE" "$err_msg"
+        report_job_fail "$err_msg"
     fi
 
     bash /aves_bin/aves_config_aws.sh user_oss $AVES_USER_OSS_SEC_ID $AVES_USER_OSS_SEC_KEY $AVES_PAI_USER_END
     if [ ! $? -eq 0 ]; then
-        report_fail "Fail to create aws config"
+        err_msg="Fail to create aws config"
+        # TODO: every worker will send job result?
+        report_worker_status "FAILURE" "$err_msg"
+        report_job_fail "$err_msg"
     fi
 fi
 
@@ -151,12 +184,14 @@ fi
 # ------------------------------------------------------------------ # 
 LOG_INFO "prepare source code: $AVES_PROJ_SRC"
 [ ! -d /AVES/ ] && mkdir /AVES
-mkdir /AVES/data/
-mkdir /AVES/output/
+[ ! -d /AVES/data/ ] && mkdir /AVES/data/
+[ ! -d /AVES/output/ ] && mkdir /AVES/output/
 
 aws s3 --endpoint-url=$AVES_USER_OSS_END --only-show-errors --page-size=100000000 --profile=user_oss sync $AVES_PROJ_SRC /AVES/src/
 if [ ! $? -eq 0 ]; then
-    report_fail "Fail to download source code: $AVES_PROJ_SRC"
+    err_msg="Fail to download source code: $AVES_PROJ_SRC"
+    report_worker_status "FAILURE" "$err_msg"
+    report_job_fail "$err_msg"
 fi
 cd /AVES/src/
 
@@ -164,15 +199,19 @@ LOG_INFO "prepare input data ..."
 {% for parami in data_params %}
   {% if parami.storage == 'oss' and parami.type == 'input' %}
     LOG_INFO "download data: {{ parami.src }}"
-    aws s3 --endpoint-url={{ parami.endpoint }} --only-show-errors --page-size=100000000 --profile=user_oss sync {{ parami.src }} {{ parami.dst}} || report_fail "Fail to sync {{ parami.src }}"
+    aws s3 --endpoint-url={{ parami.endpoint }} --only-show-errors --page-size=100000000 --profile=user_oss sync {{ parami.src }} {{ parami.dst}} || report_job_fail "Fail to sync {{ parami.src }}"
     if [ ! $? -eq 0 ]; then
-        report_fail "Fail to download input data: {{ parami.src }}"
+        # TODO
+        err_msg="Fail to download input data: {{ parami.src }}"
+        report_worker_status "FAILURE" "$err_msg"
+        report_job_fail "$err_msg"
     fi
   {% endif %}
   {% if parami.type == 'output' %}
     mkdir -p {{ parami.dst }}
   {% endif %}
 {% endfor %}
+
 
 # ------------------------------------------------------------------ # 
 # Start Running
@@ -222,14 +261,14 @@ elif [ $distribute_type == "HOROVOD" ]; then
         exec /usr/sbin/sshd -D
     fi
 else
-    [ $AVES_MAIN_NODE == "yes" ] && report_fail "Invalid distribute type: $distribute_type"
+    [ $AVES_MAIN_NODE == "yes" ] && report_job_fail "Invalid distribute type: $distribute_type"
 fi
 
 wait $PID
 job_ret=$?
 
 # ------------------------------------------------------------------ # 
-# Save output to oss()
+# Save output
 # ------------------------------------------------------------------ # 
 
 
@@ -237,7 +276,17 @@ job_ret=$?
 # Report to aves
 # ------------------------------------------------------------------ #
 if [ $job_ret -eq 0 ]; then
-    report_success
+    report_worker_status "FINISHED" "finished"
+    if [ $is_distributed == "yes" ]; then
+        [ $AVES_MAIN_NODE == "yes" ] && report_job_success
+    else
+        report_job_success
+    fi
 else
-    report_fail "job exit with non-zero exit code"
+    report_worker_status "FAILURE" "worker exit with non-zero exit code"
+    if [ $is_distributed == "yes" ]; then
+        [ $AVES_MAIN_NODE == "yes" ] && report_job_fail "worker exit with non-zero exit code"
+    else
+        report_job_fail "worker exit with non-zero exit code"
+    fi
 fi
