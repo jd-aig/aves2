@@ -46,4 +46,5 @@ if __name__ == '__main__':
             print(e)
         except Exception as e:
             print(e)
+            break
         time.sleep(10)

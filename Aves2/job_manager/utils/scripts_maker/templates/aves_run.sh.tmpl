@@ -43,6 +43,7 @@ function report_job_status() {
 
 function report_job_success() {
     python3 /aves_bin/aves_report.py "job_result" "FINISHED" "job finished"
+    exit 0
 }
 
 function report_job_fail() {
@@ -99,7 +100,7 @@ AVES_ENABLE_OSS="${AVES_ENABLE_OSS:-yes}"
 # ------------------------------------------------------------------- #
 # Check required commands
 # ------------------------------------------------------------------- #
-if [ $is_distributed -a $is_distributed == "yes" ]; then
+if [ $is_distributed == "yes" ] && [ $distribute_type == "HOROVOD" ]; then
     O=$(which nc) || report_worker_status "FAILURE" "command nc is required"
     O=$(which nc) || report_job_fail "command nc is required"
 fi
@@ -290,6 +291,7 @@ if [ $job_ret -eq 0 ]; then
     report_worker_status "FINISHED" "finished"
     if [ $is_distributed == "yes" ]; then
         [ $AVES_MAIN_NODE == "yes" ] && report_job_success
+        exit 0
     else
         report_job_success
     fi
