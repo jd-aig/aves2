@@ -449,3 +449,23 @@ def make_pvc(
 
     return pvc
 
+def make_resource_quota(
+        name,
+        namespace,
+        limits_cpu,
+        limits_memory,
+        requests_cpu,
+        requests_memory,
+):
+    hard = {"limits.cpu": limits_cpu,
+            "limits.memory": str(limits_memory) + "Mi",
+            "requests.cpu": requests_cpu,
+            "requests.memory": str(requests_memory) + "Mi",
+            }
+    spec = V1ResourceQuotaSpec(hard=hard)
+    meta = V1ObjectMeta(namespace=namespace, name=name)
+    quota = V1ResourceQuota(metadata=meta, spec=spec)
+
+    return quota
+
+

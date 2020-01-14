@@ -5,6 +5,16 @@ from kubernetes import client, config, watch
 from kubernetes.client.rest import ApiException
 from inspect import isfunction
 
+import kubernetes.client
+from kubernetes import config
+from kubernetes.client.rest import ApiException
+from kubernetes.client import (
+    V1Namespace, V1Secret, V1ObjectMeta, V1DeleteOptions,
+    V1ResourceQuota, V1ResourceQuotaSpec,
+    V1beta1CustomResourceDefinition, V1beta1CustomResourceDefinitionSpec,
+    V1RoleBinding, V1RoleRef, V1Subject,
+)
+
 
 logger = logging.getLogger('aves2')
 
@@ -132,5 +142,66 @@ class K8SClient(object):
 
         return result.items, None
 
+    @handle_api_exception
+    def create_namespaced_pvc(self, pvc_manifest, namespace):
+        api = kubernetes.client.CoreV1Api()
+        result = api.create_namespaced_persistent_volume_claim(namespace=namespace, body=pvc_manifest)
+        logger.info("create pvc succeeded result: %s" % result)
+        return result, None
+
+    @handle_api_exception_with_not_found
+    def delete_namespaced_pvc(self, name, namespace):
+        api = kubernetes.client.CoreV1Api()
+        result = api.delete_namespaced_persistent_volume_claim(name=name, namespace=namespace)
+        logger.info("delete_namespaced_pvc name:%s succeeded" % (name))
+        return result, None
+
+    @handle_api_exception
+    def create_namespace(self, name):
+        api = kubernetes.client.CoreV1Api()
+        meta = V1ObjectMeta(name=name)
+        namespace = V1Namespace(metadata=meta)
+        result = api.create_namespace(body=namespace)
+        logger.info("create namespace succeed result: %s" % result)
+        return result, None
+
+    @handle_api_exception_with_not_found
+    def delete_namespace(self, name):
+        api = kubernetes.client.CoreV1Api()
+        result = api.delete_namespace(name)
+        logger.info("delete namespace succeed name: %s" % name)
+        return result, None
+
+    @handle_api_exception
+    def get_namespace_list(self):
+        api = kubernetes.client.CoreV1Api()
+        resp = api.list_namespace()
+        return resp.items, None
+
+    @handle_api_exception
+    def get_namespaced_pvc_list(self, namespace):
+        api = kubernetes.client.CoreV1Api()
+        resp = api.list_namespaced_persistent_volume_claim(namespace=namespace)
+        return resp.items, None
+
+    @handle_api_exception
+    def create_namespaced_resource_quota(self, resource_quota_manifest, namespace):
+        api = kubernetes.client.CoreV1Api()
+        result = api.create_namespaced_resource_quota(body=resource_quota_manifest, namespace=namespace)
+        logger.info("create resource_quota in namespace {0}: {1}".format(namespace, resource_quota_manifest))
+        return result, None
+
+    @handle_api_exception
+    def get_namespaced_resource_quota_list(self, namespace):
+        api = kubernetes.client.CoreV1Api
+        resp = api.list_namespaced_resource_quota(namespace)
+        return resp.items, None
+
+    @handle_api_exception_with_not_found
+    def delete_namespaced_resource_quota(self, name, namespace):
+        api = kubernetes.client.CoreV1Api()
+        result = api.delete_namespaced_resource_quota(name, namespace)
+        logger.info("delete resource_quota name: {0}".format(name))
+        return result, None
 
 k8s_client = K8SClient()

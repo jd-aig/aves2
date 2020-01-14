@@ -2,6 +2,10 @@
 *.so
 *.egg
 *.egg-info
+*.idea/
+*env/
 dist
 build
 db.sqlite3
+web.log
+web.log*

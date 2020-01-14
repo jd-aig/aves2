@@ -14,15 +14,20 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path
 from django.conf.urls import url
-from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 
-urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('k8s/', include('k8s_manager.urls')),
-    path('', include('job_manager.urls'))
-]
+from rest_framework.routers import DefaultRouter
+from k8s_manager.views import *
 
-urlpatterns += staticfiles_urlpatterns()
-urlpatterns = [url('^aves2/', include(urlpatterns))]
+router = DefaultRouter()
+router.register(r'k8s_user', UserViewSet, base_name="k8s_user")
+router.register(r'k8s_namespace', K8SNamespaceViewSet, base_name="k8s_namespace")
+router.register(r'k8s_storageclass', K8SStorageClassViewSet, base_name="k8s_storageclass")
+router.register(r'k8s_pvc', K8SPvcViewSet, base_name="k8s_pvc")
+router.register(r'k8s_pvc_user_rel', K8SPvcUserRelViewSet, base_name="k8s_pvc_user_rel")
+router.register(r'k8s_resource_quota', K8SResourceQuotaViewSet, base_name="k8s_resource_quota")
+
+urlpatterns = []
+
+urlpatterns += router.urls
