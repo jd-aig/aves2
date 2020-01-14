@@ -41,7 +41,9 @@ if __name__ == '__main__':
             if not r.ok:
                 raise Exception(r.text)
             break
+        except requests.exceptions.ConnectTimeout as e:
+            print('Timeout, server maybe lost,  try again 10 seconds later ...')
+            print(e)
         except Exception as e:
-            print('Fail to report, try again 10 seconds later ...')
             print(e)
         time.sleep(10)

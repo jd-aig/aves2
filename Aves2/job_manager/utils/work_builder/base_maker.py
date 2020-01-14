@@ -260,7 +260,7 @@ class BaseMaker:
 
     def _gen_common_envs(self):
         envs = []
-        envs.append(self._env_var('AVES_MAIN_NODE', str(self.target_worker.is_main_node)))
+        envs.append(self._env_var('AVES_MAIN_NODE', 'yes' if self.target_worker.is_main_node else 'no'))
         envs.append(self._env_var('AVES_JOB_ID', str(self.avesjob.id)))
         envs.append(self._env_var('AVES_WORK_POD_ID', str(self.target_worker.id)))
         envs.append(self._env_var('AVES_WORK_USER', 'root'))

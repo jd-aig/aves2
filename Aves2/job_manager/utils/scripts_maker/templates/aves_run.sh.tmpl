@@ -85,6 +85,7 @@ run_training="$@"
 # AVES_API_TOKEN=""
 
 AVES_MAIN_NODE="${AVES_MAIN_NODE:-yes}"
+[ $AVES_MAIN_NODE == "yes" ] && LOG_INFO "THIS IS THE MAIN NODE"
 AVES_ENABLE_OSS="${AVES_ENABLE_OSS:-yes}"
 
 # AVES_JOB_ID="${AVES_JOB_ID}"
@@ -93,6 +94,15 @@ AVES_ENABLE_OSS="${AVES_ENABLE_OSS:-yes}"
 # AVES_WORK_PASS="${AVES_WORK_PASS:-root}"
 # AVES_WORK_ROLE="${AVES_WORK_ROLE:-worker}"
 # AVES_WORK_INDEX="${AVES_WORK_INDEX:-1}"
+
+
+# ------------------------------------------------------------------- #
+# Check required commands
+# ------------------------------------------------------------------- #
+if [ $is_distributed -a $is_distributed == "yes" ]; then
+    O=$(which nc) || report_worker_status "FAILURE" "command nc is required"
+    O=$(which nc) || report_job_fail "command nc is required"
+fi
 
 
 # ------------------------------------------------------------------- #
@@ -234,7 +244,7 @@ elif [ $distribute_type == "HOROVOD" ]; then
         IFS="$OLD_IFS"
         for host_i in ${host_arry[@]}
         do
-            while 1
+            while :
             do
                 host_i_ip=${host_i%:*}
                 nc -z $host_i_ip $AVES_MPI_SSH_PORT
@@ -259,6 +269,7 @@ elif [ $distribute_type == "HOROVOD" ]; then
         PID=$!
     else
         exec /usr/sbin/sshd -D
+        LOG_ERROR "ssh server stoped unexpectedly"
     fi
 else
     [ $AVES_MAIN_NODE == "yes" ] && report_job_fail "Invalid distribute type: $distribute_type"

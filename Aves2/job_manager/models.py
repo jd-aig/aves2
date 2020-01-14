@@ -133,7 +133,7 @@ class AvesJob(models.Model):
                     is_main_node = True
                 elif role in ['ps', 'master'] and role_index == 0:
                     is_main_node = True
-                elif role in ['worker'] and no_master_role:
+                elif role in ['worker'] and role_index == 0 and no_master_role:
                     is_main_node = True
                 else:
                     is_main_node = False
@@ -218,7 +218,13 @@ class AvesJob(models.Model):
             pod = pods_map[w.id]
             np += w.gpu_request
             hosts.append('{}:{}'.format(pod.status.pod_ip, w.gpu_request))
-        return {'AVES_MPI_NP': np, 'AVES_MPI_HOST_LIST': ','.join(hosts)}
+        # TODO: support setting ssh port
+        d = {
+                'AVES_MPI_NP': np,
+                'AVES_MPI_HOST_LIST': ','.join(hosts),
+                'AVES_MPI_SSH_PORT': 22
+            }
+        return d
 
     def __str__(self):
         return self.merged_id
