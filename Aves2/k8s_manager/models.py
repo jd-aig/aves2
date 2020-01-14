@@ -26,6 +26,7 @@ class User(models.Model):
     class Meta:
         db_table = "user"
 
+
 class K8SNamespace(models.Model):
     id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=128, blank=False, null=False, default='')
@@ -49,6 +50,7 @@ class K8SNamespace(models.Model):
 
     class Meta:
         db_table = 'k8s_namespace'
+
 
 class K8SStorageClass(models.Model):
     id = models.AutoField(primary_key=True)
@@ -104,6 +106,7 @@ class K8SPvc(models.Model):
     class Meta:
         db_table = 'k8s_pvc'
 
+
 class K8SPvcUserRel(models.Model):
     ACCESS_MODE = (
         ('ReadWriteMany', '可读写多次'),
@@ -120,6 +123,7 @@ class K8SPvcUserRel(models.Model):
 
     def __str__(self):
         return "user: " + self.user.username + "pvc: " + self.pvc.name
+
 
 class K8SResourceQuota(models.Model):
     id = models.AutoField(primary_key=True)

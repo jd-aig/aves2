@@ -15,11 +15,13 @@ class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
 
+
 class K8SNamespaceViewSet(viewsets.ModelViewSet):
     """ A ViewSet for K8SNamespace
     """
     queryset = K8SNamespace.objects.all()
     serializer_class = K8SNamespaceSerializer
+
 
 class K8SStorageClassViewSet(viewsets.ModelViewSet):
     """ A ViewSet for K8SStorageClass
@@ -27,17 +29,20 @@ class K8SStorageClassViewSet(viewsets.ModelViewSet):
     queryset = K8SStorageClass.objects.all()
     serializer_class = K8SStorageClassSerializer
 
+
 class K8SPvcViewSet(viewsets.ModelViewSet):
     """ A ViewSet for K8SPvc
     """
     queryset = K8SPvc.objects.all()
     serializer_class = K8SPvcSerializer
 
+
 class K8SPvcUserRelViewSet(viewsets.ModelViewSet):
     """A ViewSet for K8SPvcUserRel
     """
     queryset = K8SPvcUserRel.objects.all()
     serializer_class = K8SPvcUserRelSerializer
+
 
 class K8SResourceQuotaViewSet(viewsets.ModelViewSet):
     """A ViewSet for K8SResourceQuota
