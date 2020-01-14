@@ -9,11 +9,13 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = '__all__'
 
+
 class K8SNamespaceSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = K8SNamespace
         fields = '__all__'
+
 
 class K8SStorageClassSerializer(serializers.ModelSerializer):
 
@@ -21,17 +23,20 @@ class K8SStorageClassSerializer(serializers.ModelSerializer):
         model = K8SStorageClass
         fields = '__all__'
 
+
 class K8SPvcSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = K8SPvc
         fields = '__all__'
 
+
 class K8SPvcUserRelSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = K8SPvcUserRel
         fields = '__all__'
+
 
 class K8SResourceQuotaSerializer(serializers.ModelSerializer):
 
