@@ -5,6 +5,8 @@ import json
 import re
 from urllib.parse import urlparse
 
+from kubernetes.client import V1ResourceQuotaSpec, V1ResourceQuota
+
 from .utils import get_k8s_model, update_k8s_model
 
 from kubernetes.client.models import (
