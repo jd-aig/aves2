@@ -40,9 +40,9 @@ class K8SNamespace(models.Model):
         return super(K8SNamespace, self).delete(*args, **kwargs)
 
     def save(self, *args, **kwargs):
-        api_response, err_msg = k8s_client.create_namespace(self.name)
-        if err_msg is not None:
-            return err_msg
+        # api_response, err_msg = k8s_client.create_namespace(self.name)
+        # if err_msg is not None:
+        #     return err_msg
         return super(K8SNamespace, self).save(*args, **kwargs)
 
     def __str__(self):
