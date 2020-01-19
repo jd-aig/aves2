@@ -1,4 +1,5 @@
 from django.shortcuts import render
+from django_filters.rest_framework import DjangoFilterBackend
 
 from rest_framework import viewsets
 from rest_framework.response import Response
@@ -35,7 +36,8 @@ class K8SPvcViewSet(viewsets.ModelViewSet):
     """
     queryset = K8SPvc.objects.all()
     serializer_class = K8SPvcSerializer
-
+    filter_backends = [DjangoFilterBackend]
+    filter_class = K8SPvcFilter
 
 class K8SPvcUserRelViewSet(viewsets.ModelViewSet):
     """A ViewSet for K8SPvcUserRel
