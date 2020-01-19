@@ -10,7 +10,7 @@ from rest_framework.decorators import api_view, action
 from k8s_manager.models import *
 from k8s_manager.serializer import *
 
-from Aves2.k8s_manager.filter import K8SPvcFilter
+from k8s_manager.filter import K8SPvcFilter
 
 
 class UserViewSet(viewsets.ModelViewSet):
