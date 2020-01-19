@@ -6,6 +6,7 @@ class K8SPvcFilter(django_filters.rest_framework.FilterSet):
     user = django_filters.CharFilter(field_name="user", lookup_expr="exact")
 
     def get_user_pvc(self, queryset, name):
+        print("进入get_user_pvc函数" + str(name))
         return queryset.filter(user=User.objects.get(username=name).id)
 
     class Meta:
