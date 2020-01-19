@@ -37,7 +37,7 @@ class K8SPvcViewSet(viewsets.ModelViewSet):
     queryset = K8SPvc.objects.all()
     serializer_class = K8SPvcSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['name']
+    filterset_fields = ['user']
 
 class K8SPvcUserRelViewSet(viewsets.ModelViewSet):
     """A ViewSet for K8SPvcUserRel
