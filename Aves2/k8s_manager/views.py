@@ -10,6 +10,9 @@ from rest_framework.decorators import api_view, action
 from k8s_manager.models import *
 from k8s_manager.serializer import *
 
+from Aves2.k8s_manager.filter import K8SPvcFilter
+
+
 class UserViewSet(viewsets.ModelViewSet):
     """A ViewSet for User
     """
@@ -36,8 +39,11 @@ class K8SPvcViewSet(viewsets.ModelViewSet):
     """
     queryset = K8SPvc.objects.all()
     serializer_class = K8SPvcSerializer
-    filter_backends = [DjangoFilterBackend]
+    filter_backends = (DjangoFilterBackend, filter.SearchFilter, filter.OrderingFilter)
     filterset_fields = ['user']
+    filter_class = K8SPvcFilter
+    search_fields = ["user"]
+    ordering_fields = ("user")  # 排序
 
 class K8SPvcUserRelViewSet(viewsets.ModelViewSet):
     """A ViewSet for K8SPvcUserRel
