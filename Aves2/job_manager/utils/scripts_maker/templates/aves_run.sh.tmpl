@@ -53,6 +53,20 @@ function report_job_fail() {
     exit 1
 }
 
+
+# ------------------------------------------------------------------ #
+# Create user avesuser
+# ------------------------------------------------------------------ #
+export AVESUSER="avesuser"
+export AVESPASS="avespass"
+id $AVESUSER >& /dev/null
+if [ $? -ne 0 ]
+then
+   useradd -m -s /bin/bash $AVESUSER
+   echo $AVESUSER:$AVESPASS | chpasswd
+fi
+
+
 # ------------------------------------------------------------------- #
 # Report worker running
 # ------------------------------------------------------------------- #
@@ -186,6 +200,7 @@ if [ $AVES_ENABLE_OSS -a $AVES_ENABLE_OSS == "yes" ]; then
     fi
 fi
 
+
 # ------------------------------------------------------------------ # 
 # Prepare workdir
 # 
@@ -193,35 +208,26 @@ fi
 # input data   -- /AVES/data/
 # output data  -- /AVES/output/
 # ------------------------------------------------------------------ # 
-LOG_INFO "prepare source code: $AVES_PROJ_SRC"
+LOG_INFO "prepare source code"
 [ ! -d /AVES/ ] && mkdir /AVES
 [ ! -d /AVES/data/ ] && mkdir /AVES/data/
 [ ! -d /AVES/output/ ] && mkdir /AVES/output/
 
-aws s3 --endpoint-url=$AVES_USER_OSS_END --only-show-errors --page-size=100000000 --profile=user_oss sync $AVES_PROJ_SRC /AVES/src/
-if [ ! $? -eq 0 ]; then
-    err_msg="Fail to download source code: $AVES_PROJ_SRC"
-    report_worker_status "FAILURE" "$err_msg"
-    report_job_fail "$err_msg"
-fi
-cd /AVES/src/
+# Prepare source code
+{{ code_spec.data_prepare_cmd | safe }}
+cd /AVES/src
 
+# Prepare input data
 LOG_INFO "prepare input data ..."
-{% for parami in data_params %}
-  {% if parami.storage == 'oss' and parami.type == 'input' %}
-    LOG_INFO "download data: {{ parami.src }}"
-    aws s3 --endpoint-url={{ parami.endpoint }} --only-show-errors --page-size=100000000 --profile=user_oss sync {{ parami.src }} {{ parami.dst}} || report_job_fail "Fail to sync {{ parami.src }}"
-    if [ ! $? -eq 0 ]; then
-        # TODO
-        err_msg="Fail to download input data: {{ parami.src }}"
-        report_worker_status "FAILURE" "$err_msg"
-        report_job_fail "$err_msg"
-    fi
-  {% endif %}
-  {% if parami.type == 'output' %}
-    mkdir -p {{ parami.dst }}
-  {% endif %}
+{% for input_i in input_specs %}
+{{ input_i.data_prepare_cmd }}
 {% endfor %}
+
+# Prepare output dir
+{% for output_i in output_specs %}
+[ ! -d /AVES/output/{{ output_i.data_name }} ] && mkdir /AVES/output/{{output_i.data_name }}
+{% endfor %}
+chown -R $AVESUSER:$AVESUSER /AVES/output
 
 
 # ------------------------------------------------------------------ # 
@@ -229,12 +235,12 @@ LOG_INFO "prepare input data ..."
 # ------------------------------------------------------------------ # 
 if [ $is_distributed == "no" ]; then
     LOG_INFO "start training: $run_training"
-    $run_training &
+    sudo -u $AVESUSER $run_training &
     PID=$!
 elif [ $distribute_type == "TF_PS" ]; then
     LOG_INFO "start training: $run_training --ps_hosts ${AVES_TF_PS_HOSTS} --worker_hosts ${AVES_TF_WORKER_HOSTS} --job_name $AVES_WORK_ROLE --task_index $AVES_WORK_INDEX"
     echo ""
-    $run_training --ps_hosts ${AVES_TF_PS_HOSTS} --worker_hosts ${AVES_TF_WORKER_HOSTS} --job_name $AVES_WORK_ROLE --task_index $AVES_WORK_INDEX &
+    sudo -u $AVESUSER $run_training --ps_hosts ${AVES_TF_PS_HOSTS} --worker_hosts ${AVES_TF_WORKER_HOSTS} --job_name $AVES_WORK_ROLE --task_index $AVES_WORK_INDEX &
     PID=$!
 elif [ $distribute_type == "HOROVOD" ]; then
     if [ $AVES_MAIN_NODE == "yes" ]; then

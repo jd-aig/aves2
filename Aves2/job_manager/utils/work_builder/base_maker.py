@@ -1,9 +1,12 @@
 import os
 import json
+import copy
 
 from django.conf import settings
 
 from job_manager.utils import scripts_maker
+from job_manager.utils.work_builder.data_spec import make_data_spec, DataSpecKind, DataSpecType
+
 
 # /export/AVES/src/ -- Project Code
 # /export/AVES/data/mnist/ -- input data param (get from oss or mount)
@@ -13,6 +16,18 @@ class BaseMaker:
     def __init__(self, avesjob, target_worker):
         self.avesjob = avesjob
         self.target_worker = target_worker
+
+        def _ext_data(data):
+            _data = copy.deepcopy(data)
+            # TODO: make better design
+            _data['storage_config'] = {}
+            if _data['type'] == DataSpecType.OSS_FILE:
+                _data['storage_config']['endpoint'] = self.avesjob.storage_config['config']['S3Endpoint']
+                _data['storage_config']['profile_name'] = 'user_oss'
+            return _data
+        self.sourcecode_spec = make_data_spec('src', _ext_data(self.avesjob.code_spec), DataSpecKind.SOUCECODE)
+        self.input_specs = [make_data_spec(n, _ext_data(d), DataSpecKind.INPUT) for n, d in self.avesjob.input_spec.items()]
+        self.output_specs = [make_data_spec(n, _ext_data(d), DataSpecKind.OUTPUT) for n, d in self.avesjob.output_spec.items()]
 
     @staticmethod
     def _get_storage_type(data_path):
@@ -54,6 +69,7 @@ class BaseMaker:
     #     return configname, {filename: content}
 
     def gen_data_params(self):
+        return
         data = []
         for k, v in self.avesjob.input_spec.items():
             dir_name = os.path.basename(v['path'].rstrip('/'))
@@ -83,7 +99,7 @@ class BaseMaker:
     def gen_confdata_aves_scripts(self):
         configname = '{id}-aves-scripts'.format(id=self.target_worker.id)
         data = {}
-        aves_run_content = scripts_maker.gen_aves_run_script(self.gen_data_params())
+        aves_run_content = scripts_maker.gen_aves_run_script(self.sourcecode_spec, self.input_specs, self.output_specs)
         data['aves_run.sh'] = aves_run_content
         data['aves_config_aws.sh'] = scripts_maker.gen_config_aws_script()
         data['aves_get_dist_envs.py'] = scripts_maker.gen_aves_dist_envs_script()
@@ -134,10 +150,10 @@ class BaseMaker:
             ])
 
         for key, data in self.avesjob.output_spec.items():
-            dir_name = os.path.basename(data['path'].rstrip('/'))
+            # dir_name = os.path.basename(data['path'].rstrip('/'))
             args.extend([
                 '--{0}'.format(key),
-                '/AVES/output/{0}'.format(dir_name)
+                '/AVES/output/{0}'.format(key)
             ])
         return args
 
@@ -236,12 +252,41 @@ class BaseMaker:
         }
         return mount
 
+    def _gen_volume_sourcecode(self):
+        return self.sourcecode_spec.gen_volume()
+
+    def _gen_volume_mount_sourcecode(self):
+        return self.sourcecode_spec.gen_volume_mount()
+
+    def _gen_volumes_inputdata(self):
+        return [spec.gen_volume() for spec in self.input_specs]
+
+    def _gen_volume_mounts_inputdata(self):
+        return [spec.gen_volume_mount() for spec in self.input_specs]
+
+    def _gen_volumes_outputdata(self):
+        return [spec.gen_volume() for spec in self.output_specs]
+
+    def _gen_volume_mounts_outputdata(self):
+        return [spec.gen_volume_mount() for spec in self.output_specs]
+
     def gen_volumes(self):
         volumes = [
             self._gen_volume_shm(),
             self._gen_volume_tz(),
             self._gen_volume_aves_scripts(),
         ]
+        sourcecode_volume = self._gen_volume_sourcecode()
+        if sourcecode_volume:
+            volumes.append(sourcecode_volume)
+
+        for v in self._gen_volumes_inputdata():
+            if v and v not in volumes:
+                volumes.append(v)
+
+        for v in self._gen_volumes_outputdata():
+            if v and v not in volumes:
+                volumes.append(v)
         return volumes
 
     def gen_volume_mounts(self):
@@ -250,6 +295,17 @@ class BaseMaker:
             self._gen_volume_mount_tz(),
             self._gen_volume_mount_aves_scripts(),
         ]
+        sourcecode_volume = self._gen_volume_mount_sourcecode()
+        if sourcecode_volume:
+            mounts.append(sourcecode_volume)
+
+        for v in self._gen_volume_mounts_inputdata():
+            if v and v not in mounts:
+                mounts.append(v)
+
+        for v in self._gen_volume_mounts_outputdata():
+            if v and v not in mounts:
+                mounts.append(v)
         return mounts
 
     def _env_var(self, key, value):

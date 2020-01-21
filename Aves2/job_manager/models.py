@@ -32,7 +32,6 @@ class AvesJob(models.Model):
     VALID_ENGINES = (
         'tensorflow',
         'pytorch',
-        
     )
 
     STORAGE_MODE = ('Filesystem', 'OSS', 'OSSFile')
@@ -67,6 +66,7 @@ class AvesJob(models.Model):
     storage_mode = models.CharField(max_length=32, blank=False, null=False, default='OSSFile')
     storage_config = JSONField(blank=True, null=False, default=json_field_default)
     envs = JSONField(blank=True, default=json_field_default)
+    code_spec = JSONField(blank=False, default=json_field_default)
     input_spec = JSONField(blank=False, default=json_field_default)
     output_spec = JSONField(blank=False, default=json_field_default)
     log_dir = models.CharField(max_length=512, blank=True, null=False, default='')  # fs模式则指定共享存储目录/s3模式指定s3路径

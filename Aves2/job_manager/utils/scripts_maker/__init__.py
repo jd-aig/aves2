@@ -7,13 +7,18 @@ import argparse
 from jinja2 import PackageLoader, Environment, FileSystemLoader
 
 
-def gen_aves_run_script(data_params):
+TEMPLATE_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'templates')
+
+
+def gen_aves_run_script(code_spec, input_specs, output_specs):
     tpl_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'templates')
     env = Environment(loader=FileSystemLoader(tpl_path))
     tpl = env.get_template(os.path.join('aves_run.sh.tmpl'))
 
     context = {
-        'data_params': data_params
+        'code_spec': code_spec,
+        'input_specs': input_specs,
+        'output_specs': output_specs,
     }
     return tpl.render(context)
 
