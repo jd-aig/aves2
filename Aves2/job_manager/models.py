@@ -280,31 +280,35 @@ class K8SWorker(models.Model):
 
         :return: result, err_msg
         """
-        m = BaseMaker(self.avesjob, self)
+        try:
+            m = BaseMaker(self.avesjob, self)
 
-        configmap = make_configmap(*m.gen_confdata_aves_scripts())
-        k8s_client.delete_namespaced_configmap(configmap.metadata.name, self.namespace)
-        conf, err = k8s_client.create_namespaced_configmap(configmap, self.namespace)
+            configmap = make_configmap(*m.gen_confdata_aves_scripts())
+            k8s_client.delete_namespaced_configmap(configmap.metadata.name, self.namespace)
+            conf, err = k8s_client.create_namespaced_configmap(configmap, self.namespace)
 
-        pod = make_pod(
-                  name=self.worker_name,
-                  cmd=m.gen_command(),
-                  args=m.gen_args(),
-                  image=m.gen_image(),
-                  env=m.gen_envs(),
-                  labels=m.gen_pod_labels(),
-                  port_list=[],
-                  volumes=m.gen_volumes(),
-                  volume_mounts=m.gen_volume_mounts(),
-                  cpu_limit=self.cpu_request,
-                  cpu_guarantee=self.cpu_limit,
-                  mem_limit='{mem}Gi'.format(mem=self.mem_request),
-                  mem_guarantee='{mem}Gi'.format(mem=self.mem_limit),
-                  gpu_limit=self.gpu_request,
-                  gpu_guarantee=self.gpu_request,
-              )
-        pod_obj, err = k8s_client.create_namespaced_pod(pod, self.namespace)
-        rt = pod_obj is not None
+            pod = make_pod(
+                      name=self.worker_name,
+                      cmd=m.gen_command(),
+                      args=m.gen_args(),
+                      image=m.gen_image(),
+                      env=m.gen_envs(),
+                      labels=m.gen_pod_labels(),
+                      port_list=[],
+                      volumes=m.gen_volumes(),
+                      volume_mounts=m.gen_volume_mounts(),
+                      cpu_limit=self.cpu_request,
+                      cpu_guarantee=self.cpu_limit,
+                      mem_limit='{mem}Gi'.format(mem=self.mem_request),
+                      mem_guarantee='{mem}Gi'.format(mem=self.mem_limit),
+                      gpu_limit=self.gpu_request,
+                      gpu_guarantee=self.gpu_request,
+                  )
+            pod_obj, err = k8s_client.create_namespaced_pod(pod, self.namespace)
+            rt = pod_obj is not None
+        except Exception as e:
+            logger.error('{0}: Fail to start. unhandled exception'.format(self), exc_info=True)
+            return None, str(e)
         return rt, err
 
     def stop(self):
