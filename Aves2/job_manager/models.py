@@ -114,6 +114,10 @@ class AvesJob(models.Model):
         return data
 
     @property
+    def all_workers(self):
+        return self.k8s_worker.all()
+
+    @property
     def merged_id(self):
         return '{0}-{1}-{2}'.format(self.username, self.namespace, self.job_id)
 
