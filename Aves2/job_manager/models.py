@@ -10,6 +10,7 @@ from collections import defaultdict
 from django.db import models
 from django.conf import settings
 from django_mysql.models import JSONField
+from django.contrib.auth.models import User
 
 from .utils.work_builder.base_maker import BaseMaker
 from kubernetes_client.k8s_objects import make_pod, make_configmap

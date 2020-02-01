@@ -17,11 +17,16 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf.urls import url
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
+from django.contrib.auth import views as auth_views
+
 
 urlpatterns = [
+    path('accounts/login/', auth_views.LoginView.as_view(), name="user_login"),
+    path('accounts/logout/', auth_views.logout_then_login, name='logout'),
     path('admin/', admin.site.urls),
     path('k8s/', include('k8s_manager.urls')),
-    path('', include('job_manager.urls'))
+    path('center/', include('aves2_center.urls')),
+    path('', include('job_manager.urls')),
 ]
 
 urlpatterns += staticfiles_urlpatterns()
