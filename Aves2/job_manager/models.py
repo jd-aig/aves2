@@ -172,6 +172,14 @@ class AvesJob(models.Model):
 
         :return: (True/False, err_msg)
         """
+        if self.k8s_worker.count() == 0:
+            try:
+                self.make_k8s_workers()
+            except Exception as e:
+                err = 'Fail to create aves workers'
+                logger.error('fail to create aves workers', exc_info=True)
+                return False, err
+
         for worker_i in self.k8s_worker.all():
             pod, err = worker_i.start()
             if err:
