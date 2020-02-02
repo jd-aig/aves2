@@ -26,8 +26,13 @@ logger = logging.getLogger('aves2')
 class AvesWorkerViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
     """ A ViewSete for AvesWorker(K8SWorker)
     """
-    queryset = K8SWorker.objects.all()
     serializer_class = K8SWorkerSerializer
+
+    def get_queryset(self):
+        if self.request.user.is_active and self.request.user.is_superuser:
+            return K8SWorker.objects.all()
+        else:
+            return K8SWorker.objects.all().filter(username=self.request.user.username)
 
     @action(detail=True, methods=['get'])
     def change_status(self, request, pk):
@@ -48,8 +53,13 @@ class AvesWorkerViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewse
 class AvesJobViewSet(viewsets.ModelViewSet):
     """ A ViewSet for AvesJob
     """
-    queryset = AvesJob.objects.all()
     serializer_class = AvesJobSerializer
+
+    def get_queryset(self):
+        if self.request.user.is_active and self.request.user.is_superuser:
+            return AvesJob.objects.all()
+        else:
+            return AvesJob.objects.all().filter(username=self.request.user.username)
 
     @action(detail=True, methods=['get'])
     def start_job(self, request, pk):
