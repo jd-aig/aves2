@@ -23,4 +23,5 @@ from aves2_center import views
 
 urlpatterns = [
     path('', views.home, name='aves_home'),
+    path('token/', views.token, name='aves_token'),
 ]
