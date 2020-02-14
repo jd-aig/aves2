@@ -75,9 +75,11 @@ class K8SPvc(models.Model):
     namespace = models.ForeignKey('K8SNamespace', on_delete=models.CASCADE, related_name='k8s_pvc_namespace')
     storageclass = models.ForeignKey('K8SStorageClass', on_delete=models.CASCADE, related_name='k8s_storage_class')
     size = models.IntegerField(blank=False, null=False, default=0)  # Mi
+    owner = models.ForeignKey('User', on_delete=models.CASCADE, related_name='k8s_owner')
     user = models.ManyToManyField(User, through='K8SPvcUserRel', related_name="k8s_user")
     mount_path = models.CharField(max_length=32, blank=False, null=False, default='/mnt/')
     access_mode = models.CharField(max_length=32, blank=True, null=True, choices=ACCESS_MODE)
+    
 
     def save(self, *args, **kwargs):
         pvc = make_pvc(
@@ -86,13 +88,17 @@ class K8SPvc(models.Model):
             access_modes=[self.access_mode],
             storage=str(self.size) + "Mi",
         )
-        # print(pvc)
+        
         api_response, err_msg = k8s_client.create_namespaced_pvc(pvc, self.namespace.name)
         if err_msg is not None:
             print(self.namespace)
             print(err_msg)
             return err_msg
-        return super(K8SPvc, self).save(*args, **kwargs)
+        result = super(K8SPvc, self).save(*args, **kwargs)
+
+        user_rel = K8SPvcUserRel(user=self.owner, pvc=self, access_mode=self.access_mode)
+        user_rel.save()
+        return result
 
     def delete(self, *args, **kwargs):
         api_response, err_msg = k8s_client.delete_namespaced_pvc(self.name, self.namespace.name)
