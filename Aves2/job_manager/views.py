@@ -61,6 +61,19 @@ class AvesJobViewSet(viewsets.ModelViewSet):
         else:
             return AvesJob.objects.all().filter(username=self.request.user.username)
 
+    def create(self, request, *args, **kwargs):
+        user = request.user
+        if not request.data.get('username'):
+            request.data['username'] = user.username
+        elif request.data['username'] != user.username and not user.is_superuser:
+            return Response(status=status.status.HTTP_403_FORBIDDEN, headers=headers)
+
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
     @action(detail=True, methods=['get'])
     def start_job(self, request, pk):
         avesjob = self.get_object()
@@ -98,6 +111,16 @@ class AvesJobViewSet(viewsets.ModelViewSet):
 
         envs = avesjob.get_dist_envs()
         return Response(envs)
+
+    @action(detail=True, methods=['get'])
+    def clean_job(self, request, pk):
+        """
+        """
+        avesjob = self.get_object()
+        namespace = avesjob.namespace
+
+        avesjob.clean_work(force=True)
+        return Response(status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['get'])
     def finish_job(self, request, pk):

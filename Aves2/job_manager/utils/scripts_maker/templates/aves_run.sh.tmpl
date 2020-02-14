@@ -27,29 +27,37 @@ function LOG_ERROR() {
 }
 
 
+O=$(which python3)
+if [ $? == 0 ]; then
+    SYSPY=python3
+else
+    SYSPY=python
+fi
+
+
 function report_worker_status() {
     local status=$1
     local msg=$2
     LOG_INFO "report worker status: $status. $msg"
-    python3 /aves_bin/aves_report.py "worker_status" "$status" "$msg"
+    $SYSPY /aves_bin/aves_report.py "worker_status" "$status" "$msg"
 }
 
 function report_job_status() {
     local status=$1
     local msg=$2
     LOG_INFO "report job status: $status. $msg"
-    python3 /aves_bin/aves_report.py "job_status" "$status" "$msg"
+    $SYSPY /aves_bin/aves_report.py "job_status" "$status" "$msg"
 }
 
 function report_job_success() {
-    python3 /aves_bin/aves_report.py "job_result" "FINISHED" "job finished"
+    $SYSPY /aves_bin/aves_report.py "job_result" "FINISHED" "job finished"
     exit 0
 }
 
 function report_job_fail() {
     local msg=$1
     LOG_ERROR "$msg"
-    python3 /aves_bin/aves_report.py "job_result" "FAILURE" "$msg"
+    $SYSPY /aves_bin/aves_report.py "job_result" "FAILURE" "$msg"
     exit 1
 }
 
@@ -138,7 +146,7 @@ if [ $is_distributed -a $is_distributed == "yes" ]; then
 
     while :
     do
-        O=$(python3 /aves_bin/aves_get_dist_envs.py /tmp/dist_envs.sh 2>&1)
+        O=$($SYSPY /aves_bin/aves_get_dist_envs.py /tmp/dist_envs.sh 2>&1)
         RESULT=$?
         if [ $RESULT -eq 0 ]; then
             break

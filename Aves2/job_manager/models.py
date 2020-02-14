@@ -11,6 +11,7 @@ from django.db import models
 from django.conf import settings
 from django_mysql.models import JSONField
 from django.contrib.auth.models import User
+from rest_framework.authtoken.models import Token
 
 from .utils.work_builder.base_maker import BaseMaker
 from kubernetes_client.k8s_objects import make_pod, make_configmap
@@ -55,12 +56,11 @@ class AvesJob(models.Model):
     id = models.AutoField(primary_key=True)
     username = models.CharField(max_length=128, blank=False, null=False, default='')
     namespace = models.CharField(max_length=64, blank=False, null=False, default='default')
-    job_id = models.CharField(max_length=128, blank=False, null=False, default='jobid', unique=True)
+    job_id = models.CharField(max_length=128, blank=False, null=False, default='none')
     engine = models.CharField(max_length=64, blank=False, null=False)
     is_distribute = models.BooleanField(blank=True, null=False, default=False)
     distribute_type = models.CharField(max_length=64, blank=True, null=True, choices=DISTRIBUTE_TYPES)
-    # forcebot: 0上报mq，1不上报（测试模式)
-    # debug: 是否开发模式，1，不删除job
+    debug = models.BooleanField(blank=True, null=False, default=False)
     image = models.CharField(max_length=512, blank=False, null=False)
     package_uri = models.CharField(max_length=512, blank=True, null=False, default='')  # 是什么？
     resource_spec = JSONField(blank=False, default=json_field_default)
@@ -76,6 +76,20 @@ class AvesJob(models.Model):
     token = models.CharField(max_length=16, blank=True, null=False, default='')
     create_time = models.DateTimeField(auto_now_add=True)
     update_time = models.DateTimeField(auto_now=True)
+
+    @property
+    def api_token(self):
+        if not hasattr(self, '_user'):
+            user = User.objects.get(username=self.username)
+            setattr(self, '_user', user)
+        if not hasattr(self, '_token'):
+            try:
+                token = Token.objects.get(user=self._user).key
+                setattr(self, '_token', token)
+            except Exception as e:
+                token = Token.objects.crate(user=request.user).key
+                setattr(self, '_token', token)
+        return self._token
 
     @staticmethod
     def trans_request_data(data):
@@ -197,9 +211,11 @@ class AvesJob(models.Model):
                 return False, '{0}: Fail to stop work {1}'.format(self, worker_i)
         return True, None
 
-    def clean_work(self):
+    def clean_work(self, force=False):
         logger.info('{0}: clean job. job workers will be cleaned'.format(self))
         for worker_i in self.k8s_worker.all():
+            if self.debug == True and worker_i.is_main_node and force == False:
+                continue
             worker_i.stop()
 
     def get_dist_envs(self):

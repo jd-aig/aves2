@@ -7,10 +7,14 @@ import requests
 
 
 AVES_API_HOST = os.environ['AVES_API_HOST']
+AVES_API_TOKEN = os.environ['AVES_API_TOKEN']
 AVES_API_JOB_REPORT_URL = os.environ['AVES_API_JOB_REPORT_URL']
 AVES_API_JOB_STATUS_REPORT_URL = os.environ['AVES_API_JOB_STATUS_REPORT_URL']
 AVES_API_WORKER_STATUS_REPORT_URL = os.environ['AVES_API_WORKER_STATUS_REPORT_URL']
 
+HEADERS = {
+    'Authorization': 'Token %s' % AVES_API_TOKEN,
+}
 
 if __name__ == '__main__':
     report_type = sys.argv[1]  # job_status/worker_status
@@ -37,7 +41,7 @@ if __name__ == '__main__':
     while retry > 0:
         retry -= 1
         try:
-            r = requests.get(url, params=data, timeout=10)
+            r = requests.get(url, params=data, timeout=10, headers=HEADERS)
             if not r.ok:
                 raise Exception(r.text)
             break

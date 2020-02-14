@@ -136,7 +136,7 @@ class BaseMaker:
             for k, v in arg_i.items():
                 if not k.startswith('--'):
                     k = '--{0}'.format(k)
-                args.extend([k, v])
+                args.extend([k, str(v)])
         return args
 
     def _gen_data_args(self):
@@ -333,12 +333,12 @@ class BaseMaker:
         envs.append(self._env_var('AVES_API_JOB_REPORT_URL', 'aves_job/{id}/finish_job/'.format(id=self.avesjob.id)))
         envs.append(self._env_var('AVES_API_JOB_STATUS_REPORT_URL', 'aves_job/{id}/change_status/'.format(id=self.avesjob.id)))
         envs.append(self._env_var('AVES_API_WORKER_STATUS_REPORT_URL', 'aves_worker/{id}/change_status/'.format(id=self.target_worker.id)))
-        envs.append(self._env_var('AVES_API_TOKEN', self.avesjob.token))
+        envs.append(self._env_var('AVES_API_TOKEN', self.avesjob.api_token))
         return envs
 
     def _gen_pai_oss_envs(self):
         envs = []
-        if self.avesjob.storage_mode == 'OSSFile':
+        if settings.ENABLE_OSS:
             envs.append(self._env_var('AVES_PAI_OSS_SEC_ID', settings.DEFAULT_S3_ACCESS_KEY_ID))
             envs.append(self._env_var('AVES_PAI_OSS_SEC_KEY', settings.DEFAULT_S3_SECRET_ACCESS_KEY))
             envs.append(self._env_var('AVES_PAI_OSS_END', settings.DEFAULT_S3_ENDPOINT))
@@ -349,19 +349,19 @@ class BaseMaker:
 
     def _gen_user_oss_envs(self):
         envs = []
-        if self.avesjob.storage_mode == 'OSSFile':
-            envs.append(self._env_var(
-                'AVES_USER_OSS_SEC_ID',
-                self.avesjob.storage_config['config']['S3AccessKeyId']
-            ))
-            envs.append(self._env_var(
-                'AVES_USER_OSS_SEC_KEY',
-                self.avesjob.storage_config['config']['S3SecretAccessKey']
-            ))
-            envs.append(self._env_var(
-                'AVES_USER_OSS_END',
-                self.avesjob.storage_config['config']['S3Endpoint']
-            ))
+        conf = self.avesjob.storage_config.get('config', {})
+        envs.append(self._env_var(
+            'AVES_USER_OSS_SEC_ID',
+            conf.get('S3AccessKeyId')
+        ))
+        envs.append(self._env_var(
+            'AVES_USER_OSS_SEC_KEY',
+            conf.get('S3SecretAccessKey')
+        ))
+        envs.append(self._env_var(
+            'AVES_USER_OSS_END',
+            conf.get('S3Endpoint')
+        ))
         return envs
 
     def gen_envs(self):
