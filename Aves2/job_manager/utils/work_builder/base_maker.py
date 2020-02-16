@@ -18,11 +18,25 @@ class BaseMaker:
         self.target_worker = target_worker
 
         def _ext_data(data):
+            """
+            :return dict: {
+                            'type': xxx,  # oss-file or k8s-pvc
+                            'path': xxx,
+                            'filename': xxx,
+                            'storage_config': {
+                                'endpoint': xxx,  # for oss-file mode only
+                                'profile_name': xxx,  # for oss-file mode only
+                                'pvc': xxx,    # for pvc mode only
+                                'subpath': xxx,  # for pvc mode only
+                            }
+                          }
+            """
             _data = copy.deepcopy(data)
             # TODO: make better design
             _data['storage_config'] = {}
             if _data['type'] == DataSpecType.OSS_FILE:
                 _data['storage_config']['endpoint'] = self.avesjob.storage_config['config']['S3Endpoint']
+                # TODO: specify the correct profile name
                 _data['storage_config']['profile_name'] = 'user_oss'
             return _data
         self.sourcecode_spec = make_data_spec('src', _ext_data(self.avesjob.code_spec), DataSpecKind.SOUCECODE)
@@ -97,6 +111,10 @@ class BaseMaker:
         return data
 
     def gen_confdata_aves_scripts(self):
+        """ generate configmap
+
+        aves_run.sh, aves_config_aws.sh, aves_get_dist_envs.py, aves_report.py
+        """
         configname = '{id}-aves-scripts'.format(id=self.target_worker.id)
         data = {}
         aves_run_content = scripts_maker.gen_aves_run_script(self.sourcecode_spec, self.input_specs, self.output_specs)
@@ -143,7 +161,8 @@ class BaseMaker:
         args = []
         # TODO: s3://xxx/dataset/mnist vs s3://xxx/dataset/mnist.tar
         for key, data in self.avesjob.input_spec.items():
-            dir_name = os.path.basename(data['path'].rstrip('/'))
+            # dir_name = os.path.basename(data['path'].rstrip('/'))
+            dir_name = key
             args.extend([
                 '--{0}'.format(key),
                 '/AVES/data/{0}'.format(dir_name)
@@ -157,15 +176,12 @@ class BaseMaker:
             ])
         return args
 
-    def _gen_train_args(self):
-        args = self.target_worker.entrypoint.split() + \
-               self._gen_training_args() + \
-               self._gen_data_args()
-        args = ' '.join(args)
-        return [args]
-
     def gen_args(self):
-        args = self._gen_aves_args() + self._gen_train_args()
+        training_args = self.target_worker.entrypoint.split() + \
+                        self._gen_training_args() + \
+                        self._gen_data_args()
+        training_args = [' '.join(training_args)]
+        args = self._gen_aves_args() + training_args
         return args
 
     # def _gen_volume_data_params(self):

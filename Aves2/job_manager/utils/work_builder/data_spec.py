@@ -33,13 +33,14 @@ class VirtualDataSpec(object):
         'output': '/AVES/output/'
     }
 
-    def __init__(self, spec_type, src_path, data_name, data_kind, readonly=True):
+    def __init__(self, spec_type, src_path, filename, data_name, data_kind, readonly=True):
         if not data_kind in self.available_data_kind:
             raise Exception(f'Invalid datakind {data_kind}')
         self.spec_type = spec_type
         self.data_name = data_name
         self.data_kind = data_kind
         self.src_path = src_path
+        self.filename = filename
         self.readonly = readonly
 
     @property
@@ -48,6 +49,7 @@ class VirtualDataSpec(object):
         """
         if self.data_kind in ['input', 'output']:
             dir_name = os.path.basename(self.src_path.rstrip('/'))
+            dir_name = self.data_name
             return os.path.join(self.base_path_map[self.data_kind], dir_name)
         else:
             return self.base_path_map[self.data_kind]
@@ -71,9 +73,9 @@ class VirtualDataSpec(object):
 
 
 class OSSFileDataSpec(VirtualDataSpec):
-    def __init__(self, src_path, data_name, data_kind, readonly=True, storage_config={}):
+    def __init__(self, src_path, filename, data_name, data_kind, readonly=True, storage_config={}):
         spec_type = 'oss-file'
-        super(OSSFileDataSpec, self).__init__(spec_type, src_path, data_name, data_kind, readonly)
+        super(OSSFileDataSpec, self).__init__(spec_type, src_path, filename, data_name, data_kind, readonly)
         self.storage_config = storage_config
 
     def gen_prepare_data_cmd(self):
@@ -84,16 +86,17 @@ class OSSFileDataSpec(VirtualDataSpec):
         context = {
             'oss_endpoint': self.storage_config['endpoint'],
             'oss_profile': self.storage_config['profile_name'],
-            'src': self.src_path,
+            'src': os.path.join(self.src_path, self.filename),
+            'filename': self.filename,
             'dst': self.aves_path
         }
         return tpl.render(context)
 
 
 class K8SPvcDataSpec(VirtualDataSpec):
-    def __init__(self, src_path, data_name, data_kind, pvc_name, readonly=True):
+    def __init__(self, src_path, filename, data_name, data_kind, pvc_name, readonly=True):
         spec_type = 'k8s-pvc'
-        super(K8SPvcDataSpec, self).__init__(spec_type, src_path, data_name, data_kind, readonly)
+        super(K8SPvcDataSpec, self).__init__(spec_type, src_path, filename, data_name, data_kind, readonly)
         self.pvc_name = pvc_name
 
     def gen_volume(self):
@@ -135,11 +138,13 @@ def make_data_spec(name, data, data_kind):
                 {
                     'type': 'k8s-pvc',
                     'path': '/mnist/',
+                    'filename': ''
                     'storage_config': {}
                 },
                 {
                     'type': 'oss-file',
                     'path': '/mnist/',
+                    'filename': ''
                     'storage_config': {
                         'endpoint': '',
                         'profile_name': ''
@@ -148,7 +153,7 @@ def make_data_spec(name, data, data_kind):
     :param data_kind:
     """
     spec_class = get_dataspec_class(data['type'])
-    params = [data['path'], name, data_kind]
+    params = [data['path'], data['filename'], name, data_kind]
     kparams = {}
     if data['type'] == 'k8s-pvc':
         params.append(data['pvc'])

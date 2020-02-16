@@ -1,8 +1,61 @@
-aws s3 --endpoint-url={{ oss_endpoint }} --only-show-errors --page-size=100000000 --profile={{ oss_profile }} sync {{ src }} {{ dst }}
-if [ ! $? -eq 0 ]; then
-    # TODO
-    err_msg="Fail to prepare data: {{ src }}"
+# ---------- Prepare data: {{ src }}
+oss_endpoint="{{ oss_endpoint }}"
+oss_profile="{{ oss_profile }}"
+src="{{ src }}"
+filename="{{ filename }}"
+dst_dir="{{ dst }}"
+
+function report_fail() {
+    local err_msg="$1"
+    echo $err_msg
     report_worker_status "FAILURE" "$err_msg"
     report_job_fail "$err_msg"
+}
+
+if [ $filename ]; then
+    mkdir /AVES/src
+    aws s3 --endpoint-url=$oss_endpoint --only-show-errors --profile=$oss_profile cp $src /tmp/$filename
+    [ $? == 0 ] || report_fail "fail to download $src"
+
+    package="/tmp/$filename"
+    if [[ $package =~ \.zip$ ]]; then
+        O=$(unzip $package -d $dst_dir 2>&1)
+        rt=$?
+        if [ $rt != 0 ]; then
+            echo $O
+            report_fail "fail to decompress $filename"
+        fi
+    elif [[ $package =~ \.tar.gz$ ]]; then
+        O=$(tar -xzvf $package -C $dst_dir 2>&1)
+        rt=$?
+        if [ $rt != 0 ]; then
+            echo $O
+            report_fail "fail to decompress $filename"
+        fi
+    elif [[ $package =~ \.gz$ ]]; then
+        O=$(tar -xvf $package -C $dst_dir 2>&1)
+        rt=$?
+        if [ $rt != 0 ]; then
+            echo $O
+            report_fail "fail to decompress $filename"
+        fi
+    elif [[ $package =~ \.tgz$ ]]; then
+        O=$(tar -xzvf $package -C $dst_dir 2>&1)
+        rt=$?
+        if [ $rt != 0 ]; then
+            echo $O
+            report_fail "fail to decompress $filename"
+        fi
+    elif [[ $package =~ \.tar$ ]]; then
+        O=$(tar -xvf $package -C $dst_dir 2>&1)
+        rt=$?
+        if [ $rt != 0 ]; then
+            echo $O
+            report_fail "fail to decompress $filename"
+        fi
+    fi
+else
+    aws s3 --endpoint-url=$oss_endpoint --only-show-errors --page-size=100000000 --profile=$oss_profile sync $src $dst_dir
+    [ $? == 0 ] || report_fail "fail to download $src"
 fi
 
