@@ -7,13 +7,18 @@ import time
 
 
 AVES_API_HOST = os.environ['AVES_API_HOST']
+AVES_API_TOKEN = os.environ['AVES_API_TOKEN']
 AVES_API_JOB_DIST_ENVS_URL = os.environ['AVES_API_JOB_DIST_ENVS_URL']
+
+HEADERS = {
+    'Authorization': 'Token %s' % AVES_API_TOKEN,
+}
 
 def get_dist_envs(dst_env_file):
     url = os.path.join(AVES_API_HOST, AVES_API_JOB_DIST_ENVS_URL)
 
     try:
-        r = requests.get(url)
+        r = requests.get(url, headers=HEADERS)
     except (requests.exceptions.ReadTimeout, requests.exceptions.ConnectionError) as e:
         print(e)
         return False

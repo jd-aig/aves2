@@ -11,8 +11,8 @@ def make_safe_name(name):
 
 
 class DataSpecType:
-    OSS_FILE = 'oss-file'
-    K8S_PVC = 'k8s-pvc'
+    OSS_FILE = 'OSSFile'
+    K8S_PVC = 'K8SPVC'
 
 
 class DataSpecKind:
@@ -74,7 +74,7 @@ class VirtualDataSpec(object):
 
 class OSSFileDataSpec(VirtualDataSpec):
     def __init__(self, src_path, filename, data_name, data_kind, readonly=True, storage_config={}):
-        spec_type = 'oss-file'
+        spec_type = 'OSSFile'
         super(OSSFileDataSpec, self).__init__(spec_type, src_path, filename, data_name, data_kind, readonly)
         self.storage_config = storage_config
 
@@ -95,7 +95,7 @@ class OSSFileDataSpec(VirtualDataSpec):
 
 class K8SPvcDataSpec(VirtualDataSpec):
     def __init__(self, src_path, filename, data_name, data_kind, pvc_name, readonly=True):
-        spec_type = 'k8s-pvc'
+        spec_type = 'K8SPVC'
         super(K8SPvcDataSpec, self).__init__(spec_type, src_path, filename, data_name, data_kind, readonly)
         self.pvc_name = pvc_name
 
@@ -124,8 +124,8 @@ class K8SPvcDataSpec(VirtualDataSpec):
 
 
 registed_dataspec_class_map = {
-    'oss-file': OSSFileDataSpec,
-    'k8s-pvc': K8SPvcDataSpec,
+    'OSSFile': OSSFileDataSpec,
+    'K8SPVC': K8SPvcDataSpec,
 }
 
 def get_dataspec_class(spec_type):
@@ -136,13 +136,13 @@ def make_data_spec(name, data, data_kind):
     :param name:
     :param data: dict. eg. 
                 {
-                    'type': 'k8s-pvc',
+                    'type': 'K8SPVC',
                     'path': '/mnist/',
                     'filename': ''
                     'storage_config': {}
                 },
                 {
-                    'type': 'oss-file',
+                    'type': 'OSSFile',
                     'path': '/mnist/',
                     'filename': ''
                     'storage_config': {
@@ -155,8 +155,8 @@ def make_data_spec(name, data, data_kind):
     spec_class = get_dataspec_class(data['type'])
     params = [data['path'], data['filename'], name, data_kind]
     kparams = {}
-    if data['type'] == 'k8s-pvc':
+    if data['type'] == 'K8SPVC':
         params.append(data['pvc'])
-    elif data['type'] == 'oss-file':
+    elif data['type'] == 'OSSFile':
         kparams['storage_config'] = data['storage_config']
     return spec_class(*params, **kparams)

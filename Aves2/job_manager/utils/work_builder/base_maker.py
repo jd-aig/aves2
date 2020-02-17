@@ -20,12 +20,12 @@ class BaseMaker:
         def _ext_data(data):
             """
             :return dict: {
-                            'type': xxx,  # oss-file or k8s-pvc
+                            'type': xxx,  # OSSFile or K8SPVC
                             'path': xxx,
                             'filename': xxx,
                             'storage_config': {
-                                'endpoint': xxx,  # for oss-file mode only
-                                'profile_name': xxx,  # for oss-file mode only
+                                'endpoint': xxx,  # for OSSFile mode only
+                                'profile_name': xxx,  # for OSSFile mode only
                                 'pvc': xxx,    # for pvc mode only
                                 'subpath': xxx,  # for pvc mode only
                             }
