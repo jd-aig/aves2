@@ -228,7 +228,7 @@ cd /AVES/src
 # Prepare input data
 LOG_INFO "prepare input data ..."
 {% for input_i in input_specs %}
-{{ input_i.data_prepare_cmd }}
+{{ input_i.data_prepare_cmd | safe }}
 {% endfor %}
 
 # Prepare output dir
@@ -296,6 +296,10 @@ job_ret=$?
 # ------------------------------------------------------------------ # 
 # Save output
 # ------------------------------------------------------------------ # 
+LOG_INFO "saving result..."
+{% for output_i in output_specs %}
+{{ output_i.data_gather_cmd | safe }}
+{% endfor %}
 
 
 # ------------------------------------------------------------------ #

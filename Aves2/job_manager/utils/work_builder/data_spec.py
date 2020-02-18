@@ -63,9 +63,20 @@ class VirtualDataSpec(object):
     def gen_prepare_data_cmd(self):
         return None
 
+    def gen_gather_data_cmd(self):
+        return None
+
     @property
     def data_prepare_cmd(self):
         cmd = self.gen_prepare_data_cmd()
+        if cmd:
+            return cmd
+        else:
+            return ''
+
+    @property
+    def data_gather_cmd(self):
+        cmd = self.gen_gather_data_cmd()
         if cmd:
             return cmd
         else:
@@ -89,6 +100,19 @@ class OSSFileDataSpec(VirtualDataSpec):
             'src': os.path.join(self.src_path, self.filename),
             'filename': self.filename,
             'dst': self.aves_path
+        }
+        return tpl.render(context)
+
+    def gen_gather_data_cmd(self):
+        tpl_path = TEMPLATE_PATH
+        env = Environment(loader=FileSystemLoader(tpl_path))
+        tpl = env.get_template(os.path.join('gather_data_oss.sh.tmpl'))
+
+        context = {
+            'oss_endpoint': self.storage_config['endpoint'],
+            'oss_profile': self.storage_config['profile_name'],
+            'src': self.aves_path,
+            'dst': os.path.join(self.src_path, self.filename),
         }
         return tpl.render(context)
 
@@ -143,7 +167,7 @@ def make_data_spec(name, data, data_kind):
                 },
                 {
                     'type': 'OSSFile',
-                    'path': '/mnist/',
+                    'path': 's3://xxx',
                     'filename': ''
                     'storage_config': {
                         'endpoint': '',
