@@ -1,0 +1,14 @@
+oss_endpoint="{{ oss_endpoint }}"
+oss_profile="{{ oss_profile }}"
+src="{{ src }}"
+dst_dir="{{ dst }}"
+
+function report_fail() {
+    local err_msg="$1"
+    echo $err_msg
+    report_worker_status "FAILURE" "$err_msg"
+    report_job_fail "$err_msg"
+}
+
+aws s3 --endpoint-url=$oss_endpoint --only-show-errors --profile=$oss_profile sync $src $dst_dir
+[ $? == 0 ] || report_fail "fail to upload $src"
