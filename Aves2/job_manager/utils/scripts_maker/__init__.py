@@ -4,6 +4,7 @@ import os
 import json
 import argparse
 
+from django.conf import settings
 from jinja2 import PackageLoader, Environment, FileSystemLoader
 
 
@@ -19,6 +20,7 @@ def gen_aves_run_script(code_spec, input_specs, output_specs):
         'code_spec': code_spec,
         'input_specs': input_specs,
         'output_specs': output_specs,
+        'run_as_root': settings.AVES_RUN_AS_ROOT
     }
     return tpl.render(context)
 

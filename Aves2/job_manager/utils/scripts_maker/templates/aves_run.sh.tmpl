@@ -243,12 +243,20 @@ chown -R $AVESUSER:$AVESUSER /AVES/output
 # ------------------------------------------------------------------ # 
 if [ $is_distributed == "no" ]; then
     LOG_INFO "start training: $run_training"
+    {% if run_as_root %}
+    $run_training &
+    {% else %}
     sudo -u $AVESUSER $run_training &
+    {% endif %}
     PID=$!
 elif [ $distribute_type == "TF_PS" ]; then
     LOG_INFO "start training: $run_training --ps_hosts ${AVES_TF_PS_HOSTS} --worker_hosts ${AVES_TF_WORKER_HOSTS} --job_name $AVES_WORK_ROLE --task_index $AVES_WORK_INDEX"
     echo ""
+    {% if run_as_root %}
+    $run_training --ps_hosts ${AVES_TF_PS_HOSTS} --worker_hosts ${AVES_TF_WORKER_HOSTS} --job_name $AVES_WORK_ROLE --task_index $AVES_WORK_INDEX &
+    {% else %}
     sudo -u $AVESUSER $run_training --ps_hosts ${AVES_TF_PS_HOSTS} --worker_hosts ${AVES_TF_WORKER_HOSTS} --job_name $AVES_WORK_ROLE --task_index $AVES_WORK_INDEX &
+    {% endif %}
     PID=$!
 elif [ $distribute_type == "HOROVOD" ]; then
     if [ $AVES_MAIN_NODE == "yes" ]; then
