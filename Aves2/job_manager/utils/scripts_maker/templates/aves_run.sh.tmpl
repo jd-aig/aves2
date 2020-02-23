@@ -291,6 +291,7 @@ elif [ $distribute_type == "HOROVOD" ]; then
             $run_training &
         PID=$!
     else
+        LOG_INFO "start sshd ..."
         exec /usr/sbin/sshd -D
         LOG_ERROR "ssh server stoped unexpectedly"
     fi
