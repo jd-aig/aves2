@@ -27,6 +27,6 @@ def token(request):
     try:
         token = Token.objects.get(user=request.user).key
     except Exception as e:
-        Token.objects.crate(user=request.user).key
+        token = Token.objects.create(user=request.user).key
     context = {'token': token}
     return render(request, 'aves2_center/token.html', context)
