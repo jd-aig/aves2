@@ -3,6 +3,7 @@ import time
 import datetime
 import logging
 
+from django.http import StreamingHttpResponse, HttpResponse
 from django.shortcuts import render
 from django.conf import settings
 
@@ -16,7 +17,7 @@ from rest_framework.decorators import api_view, list_route, detail_route, action
 from job_manager.models import AvesJob, K8SWorker
 from job_manager.serializer import AvesJobSerializer, K8SWorkerSerializer
 from job_manager.forms import AvesJobForm
-from job_manager.tasks import startup_avesjob, cancel_avesjob
+from job_manager import tasks
 
 from kubernetes_client.client import k8s_client
 
@@ -33,6 +34,28 @@ class AvesWorkerViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewse
             return K8SWorker.objects.all()
         else:
             return K8SWorker.objects.all().filter(username=self.request.user.username)
+
+    @action(detail=True, methods=['get'])
+    def logs(self, request, pk):
+        def gen_log(logs):
+            for line in logs.splitlines():
+                yield  '%s\r\n' % line
+
+        worker = self.get_object()
+        # TODO: support query params '?tail_lines=100'
+        rt = worker.get_worker_log(tail_lines=2000)
+        return StreamingHttpResponse(gen_log(rt), content_type="text/plain")
+    
+    @action(detail=True, methods=['get'])
+    def worker_info(self, request, pk):
+        worker = self.get_object()
+        rt, err_msg = k8s_client.get_pod_status(worker.worker_name, worker.namespace)
+        if not err_msg:
+            data = rt.to_str()
+            return HttpResponse(data, content_type="text/plain")
+        else:
+            data = {'error_msg': err_msg}
+            return Response(data, status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=True, methods=['get'])
     def change_status(self, request, pk):
@@ -72,12 +95,13 @@ class AvesJobViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
+        tasks.startup_avesjob.delay(serializer.data['id'])
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
     @action(detail=True, methods=['get'])
     def start_job(self, request, pk):
         avesjob = self.get_object()
-        if avesjob.status not in ['NEW', 'FINISHED', 'FAILURE', 'CANCELED']:
+        if not avesjob.ready_to_run:
             err_msg = 'job is {0}'.format(avesjob.status)
             raise APIException(detail=err_msg)
 
@@ -89,17 +113,19 @@ class AvesJobViewSet(viewsets.ModelViewSet):
                     detail='Fail to start job {0}. {1}'\
                            .format(avesjob, err_msg),
                     code=400)
+        # TODO: report avesjob status: starting
+        # _report_avesjob_status(avesjob.merged_id, "STARTING")
         return Response(status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['get'])
     def distribute_envs(self, request, pk):
         avesjob = self.get_object()
         namespace = avesjob.namespace
-        selector = {'jobId': avesjob.job_id}
+        selector = {'avesJobId': avesjob.id}
 
         data, msg = k8s_client.get_namespaced_pod_list(namespace, selector=selector)
         if not data:
-            logger.error('Fail to get_namespaced_pod_list: namespace {0}, selector {1}. msg: {3}'.format(namespace, selector, msg))
+            logger.error('Fail to get_namespaced_pod_list: namespace {0}, selector {1}. msg: {2}'.format(namespace, selector, msg))
             raise APIException(detail='Fail to get job info', code=500)
 
         if not data or not len(data) == avesjob.k8s_worker.count():
@@ -152,6 +178,7 @@ class AvesJobViewSet(viewsets.ModelViewSet):
         avesjob = self.get_object()
         avesjob.cancel()
         avesjob.update_status('CANCELED')
+        # TODO: report status
         return Response(status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['get'])
