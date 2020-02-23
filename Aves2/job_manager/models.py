@@ -28,6 +28,16 @@ def json_field_default_list():
     return []
 
 
+class JobStatus:
+    NEW = 'NEW'
+    STARTING = 'STARTING'
+    PENDING = 'PENDING'
+    RUNNING = 'RUNNING'
+    FINISHED = 'FINISHED'
+    FAILURE = 'FAILURE'
+    CANCELED = 'CANCELED'
+
+
 class AvesJob(models.Model):
     """
     """
@@ -39,13 +49,13 @@ class AvesJob(models.Model):
     STORAGE_MODE = ('Filesystem', 'OSS', 'OSSFile')
 
     STATUS_MAP = (
-        ('NEW', '新建'),
-        ('STARTING', '启动中'),
-        ('PENDING', '等待中'),
-        ('RUNNING', '运行中'),
-        ('FINISHED', '已结束'),
-        ('FAILURE', '已失败'),
-        ('CANCELED', '已取消'),
+        (JobStatus.NEW, '新建'),
+        (JobStatus.STARTING, '启动中'),
+        (JobStatus.PENDING, '等待中'),
+        (JobStatus.RUNNING, '运行中'),
+        (JobStatus.FINISHED, '已结束'),
+        (JobStatus.FAILURE, '已失败'),
+        (JobStatus.CANCELED, '已取消'),
     )
 
     DISTRIBUTE_TYPES = (
@@ -54,6 +64,8 @@ class AvesJob(models.Model):
     )
 
     id = models.AutoField(primary_key=True)
+    name = models.CharField(max_length=128, blank=True, null=False, default='')
+    describe = models.CharField(max_length=1024, blank=True, null=False, default='')
     username = models.CharField(max_length=128, blank=False, null=False, default='')
     namespace = models.CharField(max_length=64, blank=False, null=False, default='default')
     job_id = models.CharField(max_length=128, blank=False, null=False, default='none')
@@ -72,10 +84,19 @@ class AvesJob(models.Model):
     output_spec = JSONField(blank=False, default=json_field_default)
     log_dir = models.CharField(max_length=512, blank=True, null=False, default='')  # fs模式则指定共享存储目录/s3模式指定s3路径
     mount_node_storage = models.BooleanField(blank=True, null=False, default=False)  # 是否挂载物理节点本地盘
-    status = models.CharField(max_length=16, blank=True, null=False, choices=STATUS_MAP, default='NEW')
+    status = models.CharField(max_length=16, blank=True, null=False, choices=STATUS_MAP, default=JobStatus.NEW)
     token = models.CharField(max_length=16, blank=True, null=False, default='')
     create_time = models.DateTimeField(auto_now_add=True)
     update_time = models.DateTimeField(auto_now=True)
+
+    @property
+    def job_name(self):
+        return self.name if self.name else self.merged_id
+
+    @property
+    def ready_to_run(self):
+        ready = self.status in ['NEW', 'FINISHED', 'FAILURE', 'CANCELED']
+        return ready
 
     @property
     def api_token(self):
@@ -134,7 +155,7 @@ class AvesJob(models.Model):
 
     @property
     def merged_id(self):
-        return '{0}-{1}-{2}'.format(self.username, self.namespace, self.job_id)
+        return 'aves{0}-{1}-{2}-{3}'.format(self.id, self.username, self.namespace, self.job_id)
 
     def _make_k8s_worker_name(self, role, role_index):
         return '{0}-{1}-{2}'.format(self.merged_id, role, role_index)
@@ -146,13 +167,14 @@ class AvesJob(models.Model):
 
         k8s_workers = []
         no_master_role = True if 'master' not in self.resource_spec.keys() else False
+        no_ps_role = True if 'ps' not in self.resource_spec.keys() else False
         for role, spec in self.resource_spec.items():
             for role_index in range(int(spec.get('count', 1))):
                 if not self.is_distribute:
                     is_main_node = True
                 elif role in ['ps', 'master'] and role_index == 0:
                     is_main_node = True
-                elif role in ['worker'] and role_index == 0 and no_master_role:
+                elif role in ['worker'] and role_index == 0 and no_master_role and no_ps_role:
                     is_main_node = True
                 else:
                     is_main_node = False
@@ -265,17 +287,27 @@ class AvesJob(models.Model):
         db_table = 'avesjob'
 
 
+class WorkerStatus:
+    NEW = 'NEW'
+    STARTING = 'STARTING'
+    PENDING = 'PENDING'
+    RUNNING = 'RUNNING'
+    FINISHED = 'FINISHED'
+    FAILURE = 'FAILURE'
+    CANCELED = 'CANCELED'
+
+
 class K8SWorker(models.Model):
     """
     """
     STATUS_MAP = (
-        ('NEW', '新建'),
-        ('STARTING', '启动中'),
-        ('PENDING', '等待中'),
-        ('RUNNING', '运行中'),
-        ('FINISHED', '已结束'),
-        ('FAILURE', '已失败'),
-        ('CANCELED', '已取消'),
+        (WorkerStatus.NEW, '新建'),
+        (WorkerStatus.STARTING, '启动中'),
+        (WorkerStatus.PENDING, '等待中'),
+        (WorkerStatus.RUNNING, '运行中'),
+        (WorkerStatus.FINISHED, '已结束'),
+        (WorkerStatus.FAILURE, '已失败'),
+        (WorkerStatus.CANCELED, '已取消'),
     )
 
     id = models.AutoField(primary_key=True)
@@ -296,7 +328,7 @@ class K8SWorker(models.Model):
     entrypoint = models.CharField(max_length=512, blank=True, null=False, default='')
     args = JSONField(blank=True, null=False, default=json_field_default_list)
     ports = JSONField(blank=True, null=False, default=json_field_default_list)
-    k8s_status = models.CharField(max_length=32, blank=True, null=False, choices=STATUS_MAP, default='NEW')
+    k8s_status = models.CharField(max_length=32, blank=True, null=False, choices=STATUS_MAP, default=WorkerStatus.NEW)
     worker_ip = models.CharField(max_length=32, blank=True, null=True)
     worker_json = JSONField(blank=True, null=True, default=json_field_default)
     service_json = JSONField(blank=True, null=True, default=json_field_default)
@@ -338,6 +370,9 @@ class K8SWorker(models.Model):
         except Exception as e:
             logger.error('{0}: Fail to start. unhandled exception'.format(self), exc_info=True)
             return None, str(e)
+        if rt:
+            self.k8s_status = WorkerStatus.STARTING
+            self.save()
         return rt, err
 
     def stop(self):
@@ -353,6 +388,30 @@ class K8SWorker(models.Model):
         st2, msg2 = k8s_client.delete_namespaced_configmap(configmap.metadata.name, self.namespace)
         msg = None if not(msg1 or msg2) else '{0}\n{1}'.format(msg1, msg2)
         return st1 and st2, msg
+
+    @staticmethod
+    def _extract_timestamp(log_line):
+        """ Extract timestamp from log line and covert to seconds since the Epoch
+
+        :param log_line: eg. "YYYY-MM-DD hh:mm:ss some message" 
+        :return seconds: return None if fail to match.
+        """
+        pattern = re.compile(r'(\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2})\s*\S*')
+        match = pattern.match(log_line)
+        if not match:
+            return None
+        datetime_str = match.group(1)
+        seconds = time.mktime(time.strptime(datetime_str, "%Y-%m-%d %H:%M:%S"))
+        return seconds
+
+    def get_worker_log(self, since_seconds=None, follow=False, tail_lines=None):
+        result, err = k8s_client.get_pod_log(
+                            self.worker_name,
+                            self.namespace,
+                            since_seconds=since_seconds,
+                            follow=follow,
+                            tail_lines=tail_lines)
+        return result if not err else err
 
     def update_status(self, status, msg=''):
         # TODO: replace k8s status with status
