@@ -127,6 +127,7 @@ class BaseMaker:
     def gen_pod_labels(self):
         d = {
             'app': 'aves-training',
+            'avesJobId': '%s' % self.avesjob.id,
             'jobId': '%s' % self.avesjob.job_id,
             'workerId': '%s' % self.target_worker.id,
             'workerName': '%s' % self.target_worker.worker_name,
