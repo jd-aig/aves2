@@ -142,6 +142,39 @@ class K8SClient(object):
 
         return result.items, None
 
+    def watch_pod_for_all_namespaces(self, fn, label_selector):
+        """  watch all the pod status change event
+
+        :param fn: function to process event
+        :param label_selector: pod label selector
+        """
+        api = kubernetes.client.CoreV1Api()
+        watcher = watch.Watch()
+        for event in watcher.stream(api.list_pod_for_all_namespaces, label_selector=label_selector, pretty=True, watch=True):
+            if not callable(fn):
+                return None, 'invalid process function'
+            fn(event)
+        return True, None
+
+    @handle_api_exception
+    def get_pod_status(self, pod_name, namespace, status_only=True):
+        api = kubernetes.client.CoreV1Api()
+        result = api.read_namespaced_pod_status(pod_name, namespace=namespace)
+        if status_only:
+            result = result.status
+        return result, None
+
+    @handle_api_exception
+    def get_pod_log(self, pod_name, namespace, since_seconds=None, follow=False, tail_lines=None):
+        api = kubernetes.client.CoreV1Api()
+        kwargs = dict(follow=follow, timestamps=True, async_req=False)
+        if since_seconds is not None:
+            kwargs['since_seconds'] = since_seconds
+        if tail_lines is not None:
+            kwargs['tail_lines'] = tail_lines
+        result = api.read_namespaced_pod_log(pod_name, namespace, **kwargs)
+        return result, None
+
     @handle_api_exception
     def create_namespaced_pvc(self, pvc_manifest, namespace):
         api = kubernetes.client.CoreV1Api()
