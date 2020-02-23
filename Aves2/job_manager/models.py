@@ -277,6 +277,10 @@ class AvesJob(models.Model):
             }
         return d
 
+    def is_finised(self):
+        # TODO:
+        pass
+
     def __str__(self):
         return self.merged_id
 

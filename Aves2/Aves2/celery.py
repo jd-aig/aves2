@@ -27,10 +27,3 @@ app.conf.timezone = 'Asia/Shanghai'
 app.conf.beat_schedule = {
 }
 
-app.conf.ONCE = {
-    'backend': 'celery_once.backends.Redis',
-    'settings': {
-        'url': "redis://:foobared@redis-svc.yhb-dev:6379/0",
-        'default_timeout': 60 * 60
-    }
-}
