@@ -24,7 +24,10 @@ def get_dist_envs(dst_env_file):
         return False
 
     if not r.ok:
-        print("Warning: {0}".format(r.json()['detail']))
+        try:
+            print("Warning: {0}".format(r.json()['detail']))
+        except Exception as e:
+            print(e)
         return False
 
     with open(dst_env_file, 'w') as f:
