@@ -11,57 +11,68 @@
 
           <!-- Content Row -->
           <div class="row">
-
-            <div class="col-xl-12 col-lg-12">
-              <div class="card border-left-danger shadow mb-4">
-                <!-- Card Header - Dropdown -->
-                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
-                  <h6 class="m-0 font-weight-bold text-primary">JOB ID: 2001</h6>
-                </div>
-                <!-- Card Body -->
-                <div class="card-body">
-                  <p class="card-text">Engine: Tensorflow</p>
-                  <p class="card-text">Image: ai-image.jd.com/jupyter/tensorflow:1.12-nb5.7-ubuntu16.04-py3.6</p>
-                  <div class="card">
-                    <div class="card-body">
-                      <h6 class="card-text">Worker 0</h6>
-                    </div>
-                  </div>
-                  <div class="card">
-                    <div class="card-body">
-                      <h6 class="card-text">Worker 1</h6>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
             {% for job in jobs %}
             <div class="col-xl-12 col-lg-12">
               {% if job.status == "FINISHED" %}
-              <div class="card border-left-success shadow mb-4">
+              <div class="card border-left-success shadow mb-4 job{{ job.id }}">
               {% elif job.status == "FAILURE" %}
-              <div class="card border-left-danger shadow mb-4">
+              <div class="card border-left-danger shadow mb-4 job{{ job.id }}">
               {% elif job.status == "CANCELED" %}
-              <div class="card border-left-danger shadow mb-4">
+              <div class="card border-left-danger shadow mb-4 job{{ job.id }}">
               {% else %}
-              <div class="card border-left-primary shadow mb-4">
+              <div class="card border-left-primary shadow mb-4 job{{ job.id }}">
               {% endif %}
-                <!-- Card Header - Dropdown -->
                 <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
                   <h6 class="m-0 font-weight-bold text-primary">JOB ID: {{ job.id }} -- {{ job.status }}</h6>
-                </div>
-                <!-- Card Body -->
-                <div class="card-body">
-                  <p class="card-text">Engine: {{ job.engine }}</p>
-                  <p class="card-text">Image: {{ job.image }}</p>
-                  {% for worker in job.all_workers %}
-                  <div class="card">
-                    <div class="card-body">
-                      <h6 class="card-text">{{ worker.avesrole }}-{{ worker.role_index }}</h6>
+                  <div class="dropdown no-arrow">
+                    <a class="dropdown-toggle" href="#" role="button" id="dropdownMenuLink" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                      <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400">Operation</i>
+                    </a>
+                    <div class="dropdown-menu dropdown-menu-right shadow animated--fade-in" aria-labelledby="dropdownMenuLink" x-placement="bottom-end" style="position: absolute; will-change: transform; top: 0px; left: 0px; transform: translate3d(17px, 17px, 0px);">
+                      <a class="dropdown-item cancel-job" data-id="{{ job.id }}" href="javascript:void(0)">Cancel Job</a>
+                      <a class="dropdown-item rerun-job" data-id="{{ job.id }}" href="javascript:void(0)">Rerun Job</a>
+                      <a class="dropdown-item clean-job" data-id="{{ job.id }}" href="javascript:void(0)">Clean Job</a>
                     </div>
                   </div>
-                  {% endfor %}
+                </div>
+                <!-- Card Header - Dropdown -->
+
+                <!-- Card Body -->
+                <div class="card-body">
+                  <p class="card-text">Name: {{ job.job_name }}</p>
+                  <p class="card-text">Engine: {{ job.engine }}</p>
+                  <p class="card-text">Image: {{ job.image }}</p>
+                  <div class="accordion" id="accordionJob{{ job.id }}">
+                    {% for worker in job.all_workers %}
+                    <div class="card">
+                      <div class="card-header" id="headingWork{{ worker.id }}">
+                        <h2 class="mb0">
+                        <button class="btn btn-link btn-block text-left collapsed" type="button" data-toggle="collapse" data-target="#collapseWorker{{ worker.id }}" aria-expanded="false" aria-controls="collapseWork{{ worker.id }}">
+                          {{ worker.avesrole }}-{{ worker.role_index }}
+                        </button>
+                        </h2>
+                      </div> <!-- card header -->
+                      <div id="collapseWorker{{ worker.id }}" class="collapse" aria-labelledby="headingWork{{ worker.id }}" data-parent="#accordionJob{{ job.id }}">
+                        <div class="card-body">
+                          <h6>
+                          <span class="badge badge-secondary">CPU {{worker.cpu_request}}</span>
+                          <span class="badge badge-secondary">MEM {{worker.mem_request}}G</span>
+                          {% if worker.gpu_request %}
+                          <span class="badge badge-secondary">GPU {{worker.gpu_request}}</span>
+                          {% endif %}
+                          </h6>
+                          <iframe src="http://mp.ai.jd.com/d-solo/6581e46e4e5c7ba40a07646395ef7b23/k8s-compute-resources-pod?refresh=10s&orgId=1&var-datasource=train-k8s&var-namespace={{ worker.namespace }}&var-po
+d={{ worker.worker_name }}&panelId=0&theme=light" width="450" height="200" frameborder="0"></iframe>
+                          <iframe src="http://mp.ai.jd.com/d-solo/6581e46e4e5c7ba40a07646395ef7b23/k8s-compute-resources-pod?refresh=10s&orgId=1&var-datasource=train-k8s&var-namespace={{ worker.namespace }}&var-po
+d={{ worker.worker_name }}&panelId=2&theme=light" width="450" height="200" frameborder="0"></iframe>
+                          <hr>
+                          <button type="button" class="btn btn-outline-primary btn-sm" data-toggle="modal" data-target="#workerInfoModal" data-id="{{ worker.id }}">Worker Info</button>
+                          <button type="button" class="btn btn-outline-primary btn-sm" data-toggle="modal" data-target="#workerLogsModal" data-id="{{ worker.id }}">Worker Log</button>
+                        </div>
+                      </div>
+                    </div> <!-- Card worker -->
+                    {% endfor %}
+                  </div> <!-- accordion -->
                 </div>
               </div>
             </div>
@@ -71,3 +82,127 @@
           <!-- Content Row -->
 
         {% endblock %} 
+
+        {% block extend_script %}
+        <script type="text/javascript">
+          $(function(){
+            $("a.cancel-job").click(function(e){
+              var work_id = $(this).data("id");
+              var $card = $("div.job"+work_id);
+              var $card_h = $("div.job"+work_id).children(".card-header").children("h6");
+              $.ajax({
+                url: "/aves2/aves_job/" + work_id + "/cancel_job/",
+                type: "GET",
+                success: function(data, status) {
+                  $card.addClass("border-left-danger");
+                  $card_h.html("JOB ID: "+work_id+"-- CANCELD");
+                }
+              });
+            });
+
+            $("a.rerun-job").click(function(e){
+              var work_id = $(this).data("id");
+              var $card = $("div.job"+work_id);
+              var $card_h = $("div.job"+work_id).children(".card-header").children("h6");
+              $.ajax({
+                url: "/aves2/aves_job/" + work_id + "/start_job/",
+                type: "GET",
+                success: function(data, status) {
+                  $card.removeClass("border-left-success border-left-danger border-left-primary");
+                  $card.addClass("border-left-primary");
+                  $card_h.html("JOB ID: "+work_id+"-- STARTING");
+                }
+              });
+            });
+
+            $("a.clean-job").click(function(e){
+              var work_id = $(this).data("id");
+              var $card = $("div.job"+work_id);
+              var $card_h = $("div.job"+work_id).children(".card-header").children("h6");
+              $.ajax({
+                url: "/aves2/aves_job/" + work_id + "/clean_job/",
+                type: "GET",
+                success: function(data, status) {
+                }
+              });
+            });
+
+            $('#workerInfoModal').on('show.bs.modal', function (event) {
+              var button = $(event.relatedTarget);
+              var worker_id = button.data('id');
+              var modal = $(this);
+              modal.find('.modal-title').text('Worker Status');
+              modal.find('.modal-body').find('pre').html('Plase wait ...');
+              $.ajax({
+                url: "/aves2/aves_worker/" + worker_id + "/worker_info/",
+                type: "GET",
+                success: function(data, status) {
+                  modal.find('.modal-body').find('pre').html(data);
+                },
+                error: function(data, status) {
+                  modal.find('.modal-body').find('pre').html(data);
+                },
+              });
+            });
+
+            $('#workerLogsModal').on('show.bs.modal', function (event) {
+              var button = $(event.relatedTarget);
+              var worker_id = button.data('id');
+              var modal = $(this);
+              modal.find('.modal-title').text('Recent Logs');
+              modal.find('.modal-body').find('pre').html('Plase wait ...');
+              $.ajax({
+                url: "/aves2/aves_worker/" + worker_id + "/logs/",
+                type: "GET",
+                success: function(data, status) {
+                  modal.find('.modal-body').find('pre').html(data);
+                },
+                error: function(data, status) {
+                  modal.find('.modal-body').find('pre').html(data);
+                },
+              });
+            });
+          })
+        </script>
+        {% endblock %}
+
+  {% block modal_block %}
+  <div class="modal fade" id="workerInfoModal" tabindex="-1" role="dialog" aria-labelledby="workerInfoModalScrollableTitle" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="workerInfoModalScrollableTitle">Worker Info</h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <pre style="word-wrap: break-word; white-space: pre-wrap;">
+          </pre>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="modal fade" id="workerLogsModal" tabindex="-1" role="dialog" aria-labelledby="workerLogsModalScrollableTitle" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="workerLogsModalScrollableTitle">Recent Logs</h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <pre style="word-wrap: break-word; white-space: pre-wrap;">
+          </pre>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endblock %}
