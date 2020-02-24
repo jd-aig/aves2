@@ -61,7 +61,8 @@ class K8SClient(object):
     @handle_api_exception
     def create_namespaced_configmap(self, configmap_manifest, namespace):
         api = client.CoreV1Api()
-        logger.info("create configmap in namespace {0}: {1}".format(namespace, configmap_manifest))
+        logger.info("create configmap in namespace {0}: {1}"\
+                    .format(namespace, configmap_manifest.metadata.name))
         result = api.create_namespaced_config_map(namespace, configmap_manifest, pretty=True)
         return result, None
 
