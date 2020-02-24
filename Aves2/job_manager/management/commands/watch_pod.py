@@ -25,10 +25,20 @@ class Command(BaseCommand):
 
         api = client.CoreV1Api()
         watcher = watch.Watch()
-        for event in watcher.stream(
-                        api.list_pod_for_all_namespaces,
-                        label_selector='app=aves-training',
-                        pretty=True, watch=True):
-            if event['type'] != 'MODIFIED':
-                continue
-            tasks.process_k8s_pod_event.apply_async((event,), serializer='pickle')
+        while True:
+            for event in watcher.stream(
+                            api.list_pod_for_all_namespaces,
+                            label_selector='app=aves-training',
+                            pretty=True, watch=True):
+                event_type = event.get('type')
+                pod = event['object']
+                pod_name = pod.metadata.name
+                phase = pod.status.phase
+
+                if event_type != 'MODIFIED':
+                    continue
+                try:
+                    tasks.process_k8s_pod_event.apply_async((event,), serializer='pickle')
+                except Exception as e:
+                    self.stdout.write(str(e))
+                    self.stdout.write(f"receive pod event type:{event_type} pod_name:{pod_name} phase:{phase}")
