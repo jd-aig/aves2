@@ -16,7 +16,6 @@ from rest_framework.decorators import api_view, list_route, detail_route, action
 
 from job_manager.models import AvesJob, K8SWorker
 from job_manager.serializer import AvesJobSerializer, K8SWorkerSerializer
-from job_manager.forms import AvesJobForm
 from job_manager import tasks
 
 from kubernetes_client.client import k8s_client
@@ -194,3 +193,15 @@ class AvesJobViewSet(viewsets.ModelViewSet):
 
         avesjob.update_status(job_status, msg)
         return Response(status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['get'])
+    def logs(self, request, pk):
+        def gen_log(logs):
+            for line in logs.splitlines():
+                yield  '%s\r\n' % line
+
+        job = self.get_object()
+        worker = job.k8s_worker.filter(is_main_node=True)[0]
+        # TODO: support query params '?tail_lines=100'
+        rt = worker.get_worker_log(tail_lines=2000)
+        return StreamingHttpResponse(gen_log(rt), content_type="text/plain")
