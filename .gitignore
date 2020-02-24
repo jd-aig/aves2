@@ -7,3 +7,4 @@
 dist
 build
 db.sqlite3
+.ipynb_checkpoints/*
