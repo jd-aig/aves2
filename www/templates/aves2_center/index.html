@@ -39,8 +39,8 @@
 
                 <!-- Card Body -->
                 <div class="card-body">
+                  <p class="card-text">User: {{ job.username }}</p>
                   <p class="card-text">Name: {{ job.job_name }}</p>
-                  <p class="card-text">Engine: {{ job.engine }}</p>
                   <p class="card-text">Image: {{ job.image }}</p>
                   <div class="accordion" id="accordionJob{{ job.id }}">
                     {% for worker in job.all_workers %}
