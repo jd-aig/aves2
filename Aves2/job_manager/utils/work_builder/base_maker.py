@@ -346,10 +346,10 @@ class BaseMaker:
     def _gen_api_envs(self):
         envs = []
         envs.append(self._env_var('AVES_API_HOST', settings.AVES_API_HOST))
-        envs.append(self._env_var('AVES_API_JOB_DIST_ENVS_URL', 'aves_job/{id}/distribute_envs/'.format(id=self.avesjob.id)))
-        envs.append(self._env_var('AVES_API_JOB_REPORT_URL', 'aves_job/{id}/finish_job/'.format(id=self.avesjob.id)))
-        envs.append(self._env_var('AVES_API_JOB_STATUS_REPORT_URL', 'aves_job/{id}/change_status/'.format(id=self.avesjob.id)))
-        envs.append(self._env_var('AVES_API_WORKER_STATUS_REPORT_URL', 'aves_worker/{id}/change_status/'.format(id=self.target_worker.id)))
+        envs.append(self._env_var('AVES_API_JOB_DIST_ENVS_URL', 'api/aves_job/{id}/distribute_envs/'.format(id=self.avesjob.id)))
+        envs.append(self._env_var('AVES_API_JOB_REPORT_URL', 'api/aves_job/{id}/finish_job/'.format(id=self.avesjob.id)))
+        envs.append(self._env_var('AVES_API_JOB_STATUS_REPORT_URL', 'api/aves_job/{id}/change_status/'.format(id=self.avesjob.id)))
+        envs.append(self._env_var('AVES_API_WORKER_STATUS_REPORT_URL', 'api/aves_worker/{id}/change_status/'.format(id=self.target_worker.id)))
         envs.append(self._env_var('AVES_API_TOKEN', self.avesjob.api_token))
         return envs
 
