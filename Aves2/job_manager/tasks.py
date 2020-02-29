@@ -1,7 +1,10 @@
 from __future__ import absolute_import, unicode_literals
+
 import os
 import time
 import datetime
+import json
+import pika
 import pickle
 import logging
 import traceback
@@ -17,6 +20,7 @@ from celery_once import QueueOnce
 
 from job_manager.models import JobStatus, WorkerStatus, AvesJob, K8SWorker
 from kubernetes_client import K8SPodPhase
+from common_utils.rabbitmq import get_connection
 
 
 logger = logging.getLogger('aves2')
@@ -28,16 +32,16 @@ def periodic_add(x, y):
     time.sleep(30)
     return x + y
 
-@shared_task(name='startup_avesjob', bind=True)
-def startup_avesjob(self, job_id):
+@shared_task(name='start_avesjob', bind=True)
+def start_avesjob(self, job_id):
     avesjob = AvesJob.objects.get(id=job_id)
     if not avesjob.ready_to_run:
         return
 
-    avesjob.update_status('STARTING', '')
+    avesjob.update_status('STARTING', msg='')
     rt, err_msg = avesjob.start()
     if not rt:
-        avesjob.update_status('FAILURE', err_msg)
+        avesjob.update_status('FAILURE', msg=err_msg)
 
 @shared_task(name='cancel_avesjob', bind=True)
 def cancel_avesjob(self, job_id, force=False):
@@ -68,7 +72,7 @@ def process_k8s_pod_event(self, event):
             job.k8s_worker.filter(k8s_status__in=[
                                     WorkerStatus.STARTING,
                                     WorkerStatus.RUNNING]).count() == 0:
-            job.update_status(JobStatus.FINISHED, 'Job finished')
+            job.update_status(JobStatus.FINISHED, msg='Job finished')
     elif phase == K8SPodPhase.FAILED \
         and worker.k8s_status in [WorkerStatus.STARTING, WorkerStatus.RUNNING]:
         worker.update_status(WorkerStatus.FINISHED)
@@ -77,10 +81,30 @@ def process_k8s_pod_event(self, event):
             job.k8s_worker.filter(k8s_status__in=[
                                     WorkerStatus.STARTING,
                                     WorkerStatus.RUNNING]).count() == 0:
-            job.update_status(JobStatus.FAILURE, f'{pod_name} failed')
+            job.update_status(JobStatus.FAILURE, msg=f'{pod_name} failed')
 
 @shared_task(name='report-avesjob-status', bind=True)
-def report_avesjob_status(job_id, status):
-    # TODO: implement report_avesjob_status
-    pass
+def report_avesjob_status(self, job_id, status, msg):
+    report_data = {
+        'jobId': job_id,
+        'status': status,
+        'msg': msg}
+    body = json.dumps(report_data)
 
+    connection = None
+    try:
+        connection = get_connection(settings.RABBITMQ_HOST, settings.RABBITMQ_USER, settings.RABBITMQ_PASS)
+        channel = connection.channel()
+        channel.exchange_declare(exchange=settings.STATUS_REPORT_EXCHANGE,
+                                 exchange_type=settings.STATUS_REPORT_EXCHANGE_TYPE,
+                                 durable=True)
+        channel.basic_publish(exchange=settings.STATUS_REPORT_EXCHANGE,
+                              routing_key=settings.STATUS_REPORT_ROUTING_KEY,
+                              body=body,
+                              properties=pika.BasicProperties(delivery_mode=2))
+        logger.info(f'Send job status report {body}')
+    except Exception as e:
+        logger.error(f'Fail to send job status report: {body}', exc_info=True)
+    finally:
+        if connection:
+            connection.close()

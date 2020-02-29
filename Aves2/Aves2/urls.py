@@ -18,6 +18,7 @@ from django.urls import path, include
 from django.conf.urls import url
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from django.contrib.auth import views as auth_views
+from aves2_jd_sso import views as auth_views
 
 
 urlpatterns = [

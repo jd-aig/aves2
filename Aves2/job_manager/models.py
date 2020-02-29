@@ -85,6 +85,7 @@ class AvesJob(models.Model):
     log_dir = models.CharField(max_length=512, blank=True, null=False, default='')  # fs模式则指定共享存储目录/s3模式指定s3路径
     mount_node_storage = models.BooleanField(blank=True, null=False, default=False)  # 是否挂载物理节点本地盘
     status = models.CharField(max_length=16, blank=True, null=False, choices=STATUS_MAP, default=JobStatus.NEW)
+    need_report = models.BooleanField(blank=True, null=False, default=False)
     token = models.CharField(max_length=16, blank=True, null=False, default='')
     create_time = models.DateTimeField(auto_now_add=True)
     update_time = models.DateTimeField(auto_now=True)
@@ -199,9 +200,12 @@ class AvesJob(models.Model):
         K8SWorker.objects.bulk_create(k8s_workers)
 
     def update_status(self, status, msg=''):
-        # TODO: send signal, send message
+        from .tasks import report_avesjob_status
+        logger.info(f'Job status changed: {self}, {status}, {msg}')
         self.status = status
         self.save()
+        if self.need_report:
+            report_avesjob_status.apply_async((self.job_id, status, msg))
 
     def start(self):
         """ Start aves job
