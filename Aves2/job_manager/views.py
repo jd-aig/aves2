@@ -97,6 +97,12 @@ class AvesJobViewSet(viewsets.ModelViewSet):
         tasks.start_avesjob.delay(serializer.data['id'])
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        instance.clean_work(force=True)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     @action(detail=True, methods=['get'])
     def start_job(self, request, pk):
         avesjob = self.get_object()
