@@ -17,11 +17,21 @@ from rest_framework.decorators import api_view, list_route, detail_route, action
 from job_manager.models import AvesJob, K8SWorker
 from job_manager.serializer import AvesJobSerializer, K8SWorkerSerializer
 from job_manager import tasks
+from job_manager.aves2_schemas import validate_job, trans_job_data
 
 from kubernetes_client.client import k8s_client
 
 logger = logging.getLogger('aves2')
 
+
+def obtain_post_data(request):
+    log_request_record(request)
+    data = request.POST.copy()
+    if data is not None:
+        if data == {}:
+            data = json.loads(request.body.decode('utf-8'))
+    logger.info(data)
+    return data
 
 class AvesWorkerViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
     """ A ViewSete for AvesWorker(K8SWorker)
@@ -211,3 +221,62 @@ class AvesJobViewSet(viewsets.ModelViewSet):
         # TODO: support query params '?tail_lines=100'
         rt = worker.get_worker_log(tail_lines=2000)
         return StreamingHttpResponse(gen_log(rt), content_type="text/plain")
+
+    @action(detail=True, methods=['post'])
+    def submit_avesjob(self, request):
+        user = request.user
+        data = obtain_post_data(request)
+
+        ok, err = validate_job(data)
+        if err:
+            msg = str(err)
+            logger.error('Submit job failed: {}'.format(err))
+            rt = {'success': False, 'errorMessage': msg}
+            return Response(rt)
+
+        if data['username'] != user.username and not user.is_superuser:
+            msg = 'cannot submit job with username {}'.format(data['username'])
+            logger.error('Submit job failed: {}'.format(msg))
+            rt = {'success': False, 'errorMessage': msg}
+            return Response(rt)
+
+        transed_data = trans_job_data(data)
+        serializer = self.get_serializer(data=transed_data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        tasks.start_avesjob.delay(serializer.data['id'])
+        rt = {'success': True, 'errorMessage': ''}
+        return Response(rt)
+
+    @action(detail=True, methods=['post'])
+    def delete_avesjob(self, request):
+        # TODO: Not implemented delete_avesjob
+        rt = {'success': False, 'errorMessage': ''}
+        return Response(rt)
+
+    @action(detail=True, methods=['post'])
+    def cancel_avesjob(self, request):
+        data = obtain_post_data(request)
+        job_id = data.get('jobId')
+        username = data.get('username')
+        namespace = data.get('namespace', 'default')
+        force = data.get('force', False)
+
+        try:
+            avesjob = AvesJob.objects.get(job_id=job_id)
+        except AvesJob.DoesNotExist:
+            msg = 'job_id {} not found'.format(job_id)
+            logger.error('Cancel job failed: {}'.format(msg))
+            rt = {'success': False, 'errorMessage': msg}
+            return Response(rt)
+
+        # TODO: cancel job in celery task
+        try:
+            avesjob.cancel()
+            avesjob.update_status('CANCELED')
+            rt = {'success': True, 'errorMessage': ''}
+        except Exception as e:
+            logger.error('Cancel job failed: {}'.format(avesjob), exc_info=True)
+            rt = {'success': False, 'errorMessage': 'cancel job failed'}
+        return Response(rt)

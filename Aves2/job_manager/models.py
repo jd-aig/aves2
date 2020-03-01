@@ -82,7 +82,7 @@ class AvesJob(models.Model):
     code_spec = JSONField(blank=False, default=json_field_default)
     input_spec = JSONField(blank=False, default=json_field_default)
     output_spec = JSONField(blank=False, default=json_field_default)
-    log_dir = models.CharField(max_length=512, blank=True, null=False, default='')  # fs模式则指定共享存储目录/s3模式指定s3路径
+    log_dir = JSONField(blank=True, null=False, default=json_field_default)
     mount_node_storage = models.BooleanField(blank=True, null=False, default=False)  # 是否挂载物理节点本地盘
     status = models.CharField(max_length=16, blank=True, null=False, choices=STATUS_MAP, default=JobStatus.NEW)
     need_report = models.BooleanField(blank=True, null=False, default=False)
@@ -112,43 +112,6 @@ class AvesJob(models.Model):
                 token = Token.objects.crate(user=request.user).key
                 setattr(self, '_token', token)
         return self._token
-
-    @staticmethod
-    def trans_request_data(data):
-        data = copy.deepcopy(data)
-        data['job_id'] = data['jobId']
-        data.pop('jobId')
-        data['package_uri'] = data['packageUri']
-        data.pop('packageUri')
-        data['resource_spec'] = data['resourceSpec']
-        for role, role_spec in data['resource_spec'].items():
-            role_spec['entry_point'] = role_spec['entryPoint']
-            role_spec.pop('entryPoint')
-            data['resource_spec'][role] = role_spec
-        data.pop('resourceSpec')
-        data['input_spec'] = data['inputSpec']
-        data.pop('inputSpec')
-        if 'outputSpec' in data:
-            data['output_spec'] = data.get('outputSpec', {})
-            data.pop('outputSpec')
-        if 'logDir' in data:
-            data['log_dir'] = data.get('logDir', '')
-            data.pop('logDir')
-        if 'storageMode' in data:
-            data['storage_mode'] = data['storageMode']['mode']
-            data['storage_config'] = data['storageMode']['config']
-            data.pop('storageMode')
-        if 'kind' in data:
-            data.pop('kind')
-        if 'cluster' in data:
-            data.pop('cluster')
-        if 'priority' in data:
-            data.pop('priority')
-        if 'forcebot' in data:
-            data.pop('forcebot')
-        if 'debug' in data:
-            data.pop('debug')
-        return data
 
     @property
     def all_workers(self):
