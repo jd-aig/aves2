@@ -340,7 +340,7 @@ class K8SWorker(models.Model):
             rt = pod_obj is not None
         except Exception as e:
             logger.error('{0}: Fail to start. unhandled exception'.format(self), exc_info=True)
-            return None, str(e)
+            return None, 'Fail to start worker {}'.format(self.worker_name)
         if rt:
             self.k8s_status = WorkerStatus.STARTING
             self.save()

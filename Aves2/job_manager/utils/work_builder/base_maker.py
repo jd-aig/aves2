@@ -151,11 +151,21 @@ class BaseMaker:
 
     def _gen_training_args(self):
         args = []
-        for arg_i in self.target_worker.args:
-            for k, v in arg_i.items():
-                if not k.startswith('--'):
-                    k = '--{0}'.format(k)
-                args.extend([k, str(v)])
+        if type(self.target_worker.args) is list:
+            for arg_i in self.target_worker.args:
+                if type(arg_i) == str:
+                    args.extend(arg_i)
+                elif type(arg_i) == dict:
+                    for k, v in arg_i.items():
+                        if not k.startswith('--'):
+                            k = '--{0}'.format(k)
+                        args.extend([k, str(v)])
+        elif type(self.target_worker.args) is dict:
+            for arg_i in self.target_worker.args:
+                for k, v in arg_i.items():
+                    if not k.startswith('--'):
+                        k = '--{0}'.format(k)
+                    args.extend([k, str(v)])
         return args
 
     def _gen_data_args(self):
