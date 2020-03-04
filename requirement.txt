@@ -10,3 +10,4 @@ kubernetes==9.*
 mysqlclient==1.4.2
 jsonschema==3.0.2
 jinja2
+escapism
