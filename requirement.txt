@@ -12,3 +12,4 @@ jsonschema==3.0.2
 jinja2
 escapism
 pika
+gevent
