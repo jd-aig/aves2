@@ -8,6 +8,7 @@ from inspect import isfunction
 from operator import itemgetter
 
 from kubernetes import client, config, watch
+from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
 from job_manager import tasks
@@ -25,6 +26,7 @@ class Command(BaseCommand):
 
         api = client.CoreV1Api()
         watcher = watch.Watch()
+        label = f'app={settings.AVES_JOB_LABEL}'
         while True:
             for event in watcher.stream(
                             api.list_pod_for_all_namespaces,

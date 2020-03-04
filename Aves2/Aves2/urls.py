@@ -15,8 +15,10 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from django.urls import re_path
+from django.conf import settings
 from django.conf.urls import url
-from django.contrib.staticfiles.urls import staticfiles_urlpatterns
+from django.views import static
 from django.contrib.auth import views as auth_views
 from aves2_jd_sso import views as auth_views
 
@@ -25,10 +27,14 @@ urlpatterns = [
     path('accounts/login/', auth_views.LoginView.as_view(), name="user_login"),
     path('accounts/logout/', auth_views.logout_then_login, name='logout'),
     path('admin/', admin.site.urls),
-    path('k8s/', include('k8s_manager.urls')),
+    # path('k8s/', include('k8s_manager.urls')),
     path('center/', include('aves2_center.urls')),
     path('', include('job_manager.urls')),
 ]
 
-urlpatterns += staticfiles_urlpatterns()
-urlpatterns = [url('^aves2/', include(urlpatterns))]
+if not settings.DEBUG:
+  urlpatterns += [
+      re_path(r'^static/(?P<path>.*)$', static.serve, {'document_root': settings.STATIC_ROOT}),
+  ]
+
+urlpatterns = [path('{}/'.format(settings.URL_PREFIX), include(urlpatterns))]
