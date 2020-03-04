@@ -91,7 +91,7 @@ d={{ worker.worker_name }}&panelId=2&theme=light" width="450" height="200" frame
               var $card = $("div.job"+work_id);
               var $card_h = $("div.job"+work_id).children(".card-header").children("h6");
               $.ajax({
-                url: "/aves2/aves_job/" + work_id + "/cancel_job/",
+                url: "/{{ url_prefix }}/api/aves_job/" + work_id + "/cancel_job/",
                 type: "GET",
                 success: function(data, status) {
                   $card.addClass("border-left-danger");
@@ -105,7 +105,7 @@ d={{ worker.worker_name }}&panelId=2&theme=light" width="450" height="200" frame
               var $card = $("div.job"+work_id);
               var $card_h = $("div.job"+work_id).children(".card-header").children("h6");
               $.ajax({
-                url: "/aves2/aves_job/" + work_id + "/start_job/",
+                url: "/{{ url_prefix }}/api/aves_job/" + work_id + "/start_job/",
                 type: "GET",
                 success: function(data, status) {
                   $card.removeClass("border-left-success border-left-danger border-left-primary");
@@ -120,7 +120,7 @@ d={{ worker.worker_name }}&panelId=2&theme=light" width="450" height="200" frame
               var $card = $("div.job"+work_id);
               var $card_h = $("div.job"+work_id).children(".card-header").children("h6");
               $.ajax({
-                url: "/aves2/aves_job/" + work_id + "/clean_job/",
+                url: "/{{ url_prefix }}/api/aves_job/" + work_id + "/clean_job/",
                 type: "GET",
                 success: function(data, status) {
                 }
@@ -134,7 +134,7 @@ d={{ worker.worker_name }}&panelId=2&theme=light" width="450" height="200" frame
               modal.find('.modal-title').text('Worker Status');
               modal.find('.modal-body').find('pre').html('Plase wait ...');
               $.ajax({
-                url: "/aves2/aves_worker/" + worker_id + "/worker_info/",
+                url: "/{{ url_prefix }}/aves_worker/" + worker_id + "/worker_info/",
                 type: "GET",
                 success: function(data, status) {
                   modal.find('.modal-body').find('pre').html(data);
@@ -152,7 +152,7 @@ d={{ worker.worker_name }}&panelId=2&theme=light" width="450" height="200" frame
               modal.find('.modal-title').text('Recent Logs');
               modal.find('.modal-body').find('pre').html('Plase wait ...');
               $.ajax({
-                url: "/aves2/aves_worker/" + worker_id + "/logs/",
+                url: "/{{ url_prefix }}/api/aves_worker/" + worker_id + "/logs/",
                 type: "GET",
                 success: function(data, status) {
                   modal.find('.modal-body').find('pre').html(data);
