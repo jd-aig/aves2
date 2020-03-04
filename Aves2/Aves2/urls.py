@@ -19,17 +19,19 @@ from django.urls import re_path
 from django.conf import settings
 from django.conf.urls import url
 from django.views import static
+from django.views.generic.base import RedirectView
 from django.contrib.auth import views as auth_views
 from aves2_jd_sso import views as auth_views
 
 
 urlpatterns = [
+    path('', include('aves2_center.urls')),
     path('accounts/login/', auth_views.LoginView.as_view(), name="user_login"),
     path('accounts/logout/', auth_views.logout_then_login, name='logout'),
     path('admin/', admin.site.urls),
     # path('k8s/', include('k8s_manager.urls')),
     path('center/', include('aves2_center.urls')),
-    path('', include('job_manager.urls')),
+    path('api', include('job_manager.urls')),
 ]
 
 if not settings.DEBUG:

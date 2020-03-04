@@ -22,8 +22,8 @@ from job_manager.views import AvesJobViewSet, AvesWorkerViewSet
 
 
 router = DefaultRouter()
-router.register(r'api/aves_job', AvesJobViewSet, base_name="aves_job")
-router.register(r'api/aves_worker', AvesWorkerViewSet, base_name="aves_worker")
+router.register(r'aves_job', AvesJobViewSet, base_name="aves_job")
+router.register(r'aves_worker', AvesWorkerViewSet, base_name="aves_worker")
 
 urlpatterns = [
 ]
