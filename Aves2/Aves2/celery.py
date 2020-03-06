@@ -26,4 +26,3 @@ app.conf.timezone = 'Asia/Shanghai'
 # Add periodic-tasks
 app.conf.beat_schedule = {
 }
-

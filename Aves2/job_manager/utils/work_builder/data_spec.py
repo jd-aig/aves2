@@ -7,7 +7,7 @@ from job_manager.utils.scripts_maker import TEMPLATE_PATH
 
 def make_safe_name(name):
     safe_set = set(string.ascii_lowercase + string.digits)
-    return escapism.escape(name, safe=safe_set, escape_char='-').lower() 
+    return escapism.escape(name, safe=safe_set, escape_char='-').lower()
 
 
 class DataSpecType:
@@ -186,12 +186,12 @@ registed_dataspec_class_map = {
 }
 
 def get_dataspec_class(spec_type):
-    return registed_dataspec_class_map.get(spec_type) 
+    return registed_dataspec_class_map.get(spec_type)
 
 def make_data_spec(name, data, data_kind):
     """
     :param name:
-    :param data: dict. eg. 
+    :param data: dict. eg.
                 {
                     'type': 'K8SPVC',
                     'path': '/mnist/',

@@ -364,7 +364,7 @@ class K8SWorker(models.Model):
     def _extract_timestamp(log_line):
         """ Extract timestamp from log line and covert to seconds since the Epoch
 
-        :param log_line: eg. "YYYY-MM-DD hh:mm:ss some message" 
+        :param log_line: eg. "YYYY-MM-DD hh:mm:ss some message"
         :return seconds: return None if fail to match.
         """
         pattern = re.compile(r'(\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2})\s*\S*')
