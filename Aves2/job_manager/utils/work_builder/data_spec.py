@@ -122,6 +122,8 @@ class K8SPvcDataSpec(VirtualDataSpec):
         spec_type = 'K8SPVC'
         super(K8SPvcDataSpec, self).__init__(spec_type, src_path, filename, data_name, data_kind, readonly)
         self.pvc_name = pvc_name
+        if self.data_kind == DataSpecKind.OUTPUT:
+            self.readonly = False
 
     def gen_volume(self):
         return {
@@ -147,9 +149,40 @@ class K8SPvcDataSpec(VirtualDataSpec):
         return "# mount pvc: {self.aves_path}"
 
 
+class HostPathDataSpec(VirtualDataSpec):
+    def __init__(self, src_path, filename, data_name, data_kind, readonly=True):
+        spec_type = 'HostPath'
+        super(HostPathDataSpec, self).__init__(spec_type, src_path, filename, data_name, data_kind, readonly)
+
+        self.vol_name = '{0}-{1}'.format(self.data_kind, self.data_name.replace('_', ''))
+        if self.data_kind == DataSpecKind.OUTPUT:
+            self.readonly = False
+
+    def gen_volume(self):
+        return {
+            'name': self.vol_name,
+            'hostPath': {
+                'path': self.src_path
+            }
+        }
+
+    def gen_volume_mount(self):
+        mount_path = self.aves_path
+        d = {
+            'name': self.vol_name,
+            'mountPath': mount_path,
+            'readOnly': self.readonly
+        }
+        return d
+
+    def gen_prepare_cmd(self):
+        return "# mount host path: {self.aves_path}"
+
+
 registed_dataspec_class_map = {
     'OSSFile': OSSFileDataSpec,
     'K8SPVC': K8SPvcDataSpec,
+    'HostPath': HostPathDataSpec,
 }
 
 def get_dataspec_class(spec_type):
