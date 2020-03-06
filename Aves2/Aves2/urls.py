@@ -31,7 +31,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     # path('k8s/', include('k8s_manager.urls')),
     path('center/', include('aves2_center.urls')),
-    path('api', include('job_manager.urls')),
+    path('api/', include('job_manager.urls')),
 ]
 
 if not settings.DEBUG:
