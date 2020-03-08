@@ -100,6 +100,10 @@ class AvesJobViewSet(viewsets.ModelViewSet):
         elif request.data['username'] != user.username and not user.is_superuser:
             return Response(status=status.status.HTTP_403_FORBIDDEN, headers=headers)
 
+        if not user.is_superuser:
+            namespace = user.groups.all()[0].name
+            request.data['namespace'] = namespace
+
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
