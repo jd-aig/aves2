@@ -72,7 +72,7 @@ class AvesJob(models.Model):
     engine = models.CharField(max_length=64, blank=False, null=False)
     is_distribute = models.BooleanField(blank=True, null=False, default=False)
     distribute_type = models.CharField(max_length=64, blank=True, null=True, choices=DISTRIBUTE_TYPES)
-    debug = models.BooleanField(blank=True, null=False, default=False)
+    debug = models.BooleanField(blank=True, null=False, default=True)
     image = models.CharField(max_length=512, blank=False, null=False)
     package_uri = models.CharField(max_length=512, blank=True, null=False, default='')  # 是什么？
     resource_spec = JSONField(blank=False, default=json_field_default)
