@@ -134,7 +134,7 @@ d={{ worker.worker_name }}&panelId=2&theme=light" width="450" height="200" frame
               modal.find('.modal-title').text('Worker Status');
               modal.find('.modal-body').find('pre').html('Plase wait ...');
               $.ajax({
-                url: "/{{ url_prefix }}/aves_worker/" + worker_id + "/worker_info/",
+                url: "/{{ url_prefix }}/api/aves_worker/" + worker_id + "/worker_info/",
                 type: "GET",
                 success: function(data, status) {
                   modal.find('.modal-body').find('pre').html(data);
