@@ -33,6 +33,7 @@ def obtain_post_data(request):
     logger.info(data)
     return data
 
+
 class AvesWorkerViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
     """ A ViewSete for AvesWorker(K8SWorker)
     """
@@ -48,13 +49,13 @@ class AvesWorkerViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewse
     def logs(self, request, pk):
         def gen_log(logs):
             for line in logs.splitlines():
-                yield  '%s\r\n' % line
+                yield '%s\r\n' % line
 
         worker = self.get_object()
         # TODO: support query params '?tail_lines=100'
         rt = worker.get_worker_log(tail_lines=2000)
         return StreamingHttpResponse(gen_log(rt), content_type="text/plain")
-    
+
     @action(detail=True, methods=['get'])
     def worker_info(self, request, pk):
         worker = self.get_object()
@@ -129,7 +130,7 @@ class AvesJobViewSet(viewsets.ModelViewSet):
         if not rt:
             avesjob.update_status('FAILURE', err_msg)
             raise APIException(
-                    detail='Fail to start job {0}. {1}'\
+                    detail='Fail to start job {0}. {1}'
                            .format(avesjob, err_msg),
                     code=400)
         # TODO: report avesjob status: starting
@@ -218,7 +219,7 @@ class AvesJobViewSet(viewsets.ModelViewSet):
     def logs(self, request, pk):
         def gen_log(logs):
             for line in logs.splitlines():
-                yield  '%s\r\n' % line
+                yield '%s\r\n' % line
 
         job = self.get_object()
         worker = job.k8s_worker.filter(is_main_node=True)[0]

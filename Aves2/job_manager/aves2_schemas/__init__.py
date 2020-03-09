@@ -31,6 +31,7 @@ def validate_job(job):
     except Exception as e:
         return False, e
 
+
 def trans_job_data(job):
     data = {}
     data['job_id'] = job['jobId']

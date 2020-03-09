@@ -78,4 +78,3 @@ worker_schema = {
     }
   }
 }
-

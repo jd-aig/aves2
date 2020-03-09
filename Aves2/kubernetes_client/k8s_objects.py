@@ -33,6 +33,7 @@ def make_configmap(configname, data):
                 )
     return configmap
 
+
 def make_pod(
     name,
     cmd,
@@ -451,6 +452,7 @@ def make_pvc(
 
     return pvc
 
+
 def make_resource_quota(
         name,
         namespace,
@@ -469,5 +471,3 @@ def make_resource_quota(
     quota = V1ResourceQuota(metadata=meta, spec=spec)
 
     return quota
-
-

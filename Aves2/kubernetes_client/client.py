@@ -32,7 +32,7 @@ class K8SClient(object):
                 # fn returns:  [response, msg]
                 return fn(*args, **kwargs)
             except ApiException as e:
-                logger.error('Calling {0} got exception'.format(fn) , exc_info=True)
+                logger.error('Calling {0} got exception'.format(fn), exc_info=True)
                 try:
                     # msg_str = codecs.decode(e.body, "unicode_escape")
                     msg_str = e.body.replace(r'\"', '')
@@ -61,7 +61,7 @@ class K8SClient(object):
     @handle_api_exception
     def create_namespaced_configmap(self, configmap_manifest, namespace):
         api = client.CoreV1Api()
-        logger.info("create configmap in namespace {0}: {1}"\
+        logger.info("create configmap in namespace {0}: {1}"
                     .format(namespace, configmap_manifest.metadata.name))
         result = api.create_namespaced_config_map(namespace, configmap_manifest, pretty=True)
         return result, None
@@ -112,9 +112,9 @@ class K8SClient(object):
         api = client.CoreV1Api()
         body = client.V1DeleteOptions()
         # Acceptable values are:
-        #'Orphan' - orphan the dependents;
-        #'Background' - allow the garbage collector to delete the dependents in the background;
-        #'Foreground' - a cascading policy that deletes all dependents in the foreground.
+        # 'Orphan' - orphan the dependents;
+        # 'Background' - allow the garbage collector to delete the dependents in the background;
+        # 'Foreground' - a cascading policy that deletes all dependents in the foreground.
         body.propagation_policy = 'Background'
         result = api.delete_namespaced_pod(name, namespace, body=body)
 
@@ -129,14 +129,14 @@ class K8SClient(object):
                  or False, err_msg
         """
         condition = None
-        if selector != None:
+        if selector is not None:
             success, condition = self._build_condition(selector=selector)
             if not success:
                 err_msg = condition
                 return None, err_msg
 
         api = client.CoreV1Api()
-        if condition == None:
+        if condition is None:
             result = api.list_namespaced_pod(namespace, watch=False)
         else:
             result = api.list_namespaced_pod(namespace, label_selector=condition, watch=False)

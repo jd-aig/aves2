@@ -18,9 +18,11 @@ def home(request):
     if request.user.is_active and request.user.is_superuser:
         jobs = AvesJob.objects.all().order_by('-id')
     else:
-        jobs = AvesJob.objects.all().filter(username=request.user.username).order_by('-id')
+        jobs = AvesJob.objects.all()\
+                .filter(username=request.user.username).order_by('-id')
     context = {'jobs': jobs}
     return render(request, 'aves2_center/index.html', context)
+
 
 @login_required
 def token(request):

@@ -3,6 +3,7 @@ from job_manager.models import AvesJob, K8SWorker
 
 # Register your models here.
 
+
 class AvesJobAdmin(admin.ModelAdmin):
     list_display = (
         'id',

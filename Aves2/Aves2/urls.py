@@ -35,8 +35,8 @@ urlpatterns = [
 ]
 
 if not settings.DEBUG:
-  urlpatterns += [
-      re_path(r'^static/(?P<path>.*)$', static.serve, {'document_root': settings.STATIC_ROOT}),
-  ]
+    urlpatterns += [
+        re_path(r'^static/(?P<path>.*)$', static.serve, {'document_root': settings.STATIC_ROOT}),
+    ]
 
 urlpatterns = [path('{}/'.format(settings.URL_PREFIX), include(urlpatterns))]

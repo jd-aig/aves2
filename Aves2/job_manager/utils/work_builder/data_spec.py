@@ -34,7 +34,7 @@ class VirtualDataSpec(object):
     }
 
     def __init__(self, spec_type, src_path, filename, data_name, data_kind, readonly=True):
-        if not data_kind in self.available_data_kind:
+        if data_kind not in self.available_data_kind:
             raise Exception(f'Invalid datakind {data_kind}')
         self.spec_type = spec_type
         self.data_name = data_name
@@ -185,8 +185,10 @@ registed_dataspec_class_map = {
     'HostPath': HostPathDataSpec,
 }
 
+
 def get_dataspec_class(spec_type):
     return registed_dataspec_class_map.get(spec_type)
+
 
 def make_data_spec(name, data, data_kind):
     """

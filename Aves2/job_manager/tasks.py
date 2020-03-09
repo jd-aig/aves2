@@ -32,6 +32,7 @@ def periodic_add(x, y):
     time.sleep(30)
     return x + y
 
+
 @shared_task(name='start_avesjob', bind=True)
 def start_avesjob(self, job_id):
     avesjob = AvesJob.objects.get(id=job_id)
@@ -42,6 +43,7 @@ def start_avesjob(self, job_id):
     rt, err_msg = avesjob.start()
     if not rt:
         avesjob.update_status('FAILURE', msg=err_msg)
+
 
 @shared_task(name='cancel_avesjob', bind=True)
 def cancel_avesjob(self, job_id, force=False):
@@ -54,6 +56,7 @@ def cancel_avesjob(self, job_id, force=False):
     rt, err_msg = avesjob.cancel()
     avesjob.update_status('CANCELED')
 
+
 @shared_task(name='process_k8s_pod_event', bind=True)
 def process_k8s_pod_event(self, event):
     event_type = event.get('type')
@@ -65,7 +68,7 @@ def process_k8s_pod_event(self, event):
 
     worker = K8SWorker.objects.get(id=worker_id)
     if phase == K8SPodPhase.SUCCEEDED \
-        and worker.k8s_status in [WorkerStatus.STARTING, WorkerStatus.RUNNING]:
+            and worker.k8s_status in [WorkerStatus.STARTING, WorkerStatus.RUNNING]:
         worker.update_status(WorkerStatus.FINISHED)
         job = worker.avesjob
         if job.status in [JobStatus.STARTING, JobStatus.RUNNING] and \
@@ -74,7 +77,7 @@ def process_k8s_pod_event(self, event):
                                     WorkerStatus.RUNNING]).count() == 0:
             job.update_status(JobStatus.FINISHED, msg='Job finished')
     elif phase == K8SPodPhase.FAILED \
-        and worker.k8s_status in [WorkerStatus.STARTING, WorkerStatus.RUNNING]:
+            and worker.k8s_status in [WorkerStatus.STARTING, WorkerStatus.RUNNING]:
         worker.update_status(WorkerStatus.FINISHED)
         job = worker.avesjob
         if job.status in [JobStatus.STARTING, JobStatus.RUNNING] and \
@@ -82,6 +85,7 @@ def process_k8s_pod_event(self, event):
                                     WorkerStatus.STARTING,
                                     WorkerStatus.RUNNING]).count() == 0:
             job.update_status(JobStatus.FAILURE, msg=f'{pod_name} failed')
+
 
 @shared_task(name='report-avesjob-status', bind=True)
 def report_avesjob_status(self, job_id, status, msg):

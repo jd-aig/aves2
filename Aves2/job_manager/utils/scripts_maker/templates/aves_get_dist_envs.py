@@ -14,6 +14,7 @@ HEADERS = {
     'Authorization': 'Token %s' % AVES_API_TOKEN,
 }
 
+
 def get_dist_envs(dst_env_file):
     url = os.path.join(AVES_API_HOST, AVES_API_JOB_DIST_ENVS_URL)
 
@@ -40,5 +41,3 @@ if __name__ == '__main__':
     env_file = sys.argv[1]
     if not get_dist_envs(env_file):
         exit(2)
-
-

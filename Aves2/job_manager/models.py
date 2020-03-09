@@ -24,6 +24,7 @@ logger = logging.getLogger('aves2')
 def json_field_default():
     return {}
 
+
 def json_field_default_list():
     return []
 
@@ -148,7 +149,7 @@ class AvesJob(models.Model):
                     engine=self.engine,
                     avesjob=self,
                     worker_name=self._make_k8s_worker_name(role, role_index),
-                    is_main_node = is_main_node,
+                    is_main_node=is_main_node,
                     avesrole=role,
                     role_index=role_index,
                     cpu_request=spec.get('cpu', 4),
@@ -222,7 +223,7 @@ class AvesJob(models.Model):
 
         pods, msg = k8s_client.get_namespaced_pod_list(self.namespace, selector={'jobId': self.job_id})
         ps_ips = ['{0}:2222'.format(i.status.pod_ip) for i in pods if i.metadata.labels.get('workerId') in ps]
-        worker_ips = [ '{0}:2222'.format(i.status.pod_ip) for i in pods if i.metadata.labels.get('workerId') in workers]
+        worker_ips = ['{0}:2222'.format(i.status.pod_ip) for i in pods if i.metadata.labels.get('workerId') in workers]
 
         return {'AVES_TF_PS_HOSTS': ','.join(ps_ips), 'AVES_TF_WORKER_HOSTS': ','.join(worker_ips)}
 
@@ -397,4 +398,3 @@ class K8SWorker(models.Model):
 
     class Meta:
         db_table = 'k8sworker'
-

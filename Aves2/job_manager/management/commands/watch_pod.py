@@ -13,8 +13,10 @@ from django.core.management.base import BaseCommand, CommandError
 
 from job_manager import tasks
 
+
 def quit_handler(signum, frame):
     sys.exit(0)
+
 
 class Command(BaseCommand):
     help = 'Watch k8s pod event'
@@ -40,7 +42,9 @@ class Command(BaseCommand):
                 if event_type != 'MODIFIED':
                     continue
                 try:
-                    tasks.process_k8s_pod_event.apply_async((event,), serializer='pickle')
+                    tasks.process_k8s_pod_event.apply_async(
+                            (event,),
+                            serializer='pickle')
                 except Exception as e:
                     self.stdout.write(str(e))
                     self.stdout.write(f"receive pod event type:{event_type} pod_name:{pod_name} phase:{phase}")

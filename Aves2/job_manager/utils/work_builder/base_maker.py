@@ -453,7 +453,6 @@ class BaseMaker:
                     }
                 }
 
-
     def get_pod_manifest(self):
         pass
 
@@ -465,4 +464,3 @@ class BaseMaker:
 
     def get_ingress_manifest(self):
         pass
-
