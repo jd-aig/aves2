@@ -32,13 +32,14 @@ class Command(BaseCommand):
         while True:
             for event in watcher.stream(
                             api.list_pod_for_all_namespaces,
-                            label_selector='app=aves-training',
+                            label_selector=label,
                             pretty=True, watch=True):
                 event_type = event.get('type')
                 pod = event['object']
                 pod_name = pod.metadata.name
                 phase = pod.status.phase
 
+                self.stdout.write(f"receive pod event type:{event_type} pod_name:{pod_name} phase:{phase}")
                 if event_type != 'MODIFIED':
                     continue
                 try:
@@ -47,4 +48,3 @@ class Command(BaseCommand):
                             serializer='pickle')
                 except Exception as e:
                     self.stdout.write(str(e))
-                    self.stdout.write(f"receive pod event type:{event_type} pod_name:{pod_name} phase:{phase}")
