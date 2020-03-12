@@ -25,7 +25,7 @@ logger = logging.getLogger('aves2')
 
 
 def obtain_post_data(request):
-    log_request_record(request)
+    # log_request_record(request)
     data = request.POST.copy()
     if data is not None:
         if data == {}:
@@ -227,7 +227,7 @@ class AvesJobViewSet(viewsets.ModelViewSet):
         rt = worker.get_worker_log(tail_lines=2000)
         return StreamingHttpResponse(gen_log(rt), content_type="text/plain")
 
-    @action(detail=True, methods=['post'])
+    @action(detail=False, methods=['post'])
     def submit_avesjob(self, request):
         user = request.user
         data = obtain_post_data(request)
@@ -254,13 +254,13 @@ class AvesJobViewSet(viewsets.ModelViewSet):
         rt = {'success': True, 'errorMessage': ''}
         return Response(rt)
 
-    @action(detail=True, methods=['post'])
+    @action(detail=False, methods=['post'])
     def delete_avesjob(self, request):
         # TODO: Not implemented delete_avesjob
         rt = {'success': False, 'errorMessage': ''}
         return Response(rt)
 
-    @action(detail=True, methods=['post'])
+    @action(detail=False, methods=['post'])
     def cancel_avesjob(self, request):
         data = obtain_post_data(request)
         job_id = data.get('jobId')
