@@ -385,6 +385,27 @@ class K8SWorker(models.Model):
                             tail_lines=tail_lines)
         return result if not err else err
 
+    def get_container_log_info(self):
+        """ generate two url for PAI server to get container log infomation
+
+        :return tuple: (readlong_url, loginfo_url) or None
+        """
+        if not hasattr(self, '_readlog_url'):
+            pod_status, err = k8s_client.get_pod_status(self.worker_name, self.namespace)
+            if err:
+                return None
+            host_ip = pod_status.host_ip
+            container_id = pod_status.container_statuses[0].container_id \
+                            .split('docker://')[-1]
+            port = settings.LOG_SERVER_PORT
+            readlog_prefix = settings.READLOG_URLPREFIX
+            loginfo_prefix = settings.LOGINFO_URLPREFIX
+            readlog_url = f"http://{host_ip}:{port}/{readlog_prefix}?filename={container_id}"
+            loginfo_url = f"http://{host_ip}:{port}/{loginfo_prefix}?filename={container_id}"
+            setattr(self, '_readlog_url', readlog_url)
+            setattr(self, '_loginfo_url', loginfo_url)
+        return (self._readlog_url, self._loginfo_url)
+
     def update_status(self, status, msg=''):
         # TODO: replace k8s status with status
         self.k8s_status = status

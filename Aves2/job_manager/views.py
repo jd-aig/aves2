@@ -15,7 +15,7 @@ from rest_framework.exceptions import APIException
 from rest_framework.decorators import api_view, list_route, detail_route, action
 
 from job_manager.models import AvesJob, K8SWorker
-from job_manager.serializer import AvesJobSerializer, K8SWorkerSerializer
+from job_manager.serializer import AvesJobSerializer, K8SWorkerSerializer, WorkerLogSerializer
 from job_manager import tasks
 from job_manager.aves2_schemas import validate_job, trans_job_data
 
@@ -285,3 +285,31 @@ class AvesJobViewSet(viewsets.ModelViewSet):
             logger.error('Cancel job failed: {}'.format(avesjob), exc_info=True)
             rt = {'success': False, 'errorMessage': 'cancel job failed'}
         return Response(rt)
+
+    @action(detail=False, methods=['get'])
+    def get_loginfo(self, request):
+        username = request.GET.get('username')
+        namespace = request.GET.get('namespace')
+        job_id = request.GET.get('job_id')
+        role_id = request.GET.get('roleId')
+
+        if not (username and namespace and job_id):
+            err_msg = 'username namespace job_id are required'
+            return Response(
+                {'success': False, 'errorMessage': err_msg},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            avesjob = AvesJob.objects.get(job_id=job_id)
+        except AvesJob.DoesNotExist:
+            msg = 'job_id {} not found'.format(job_id)
+            logger.error('Cancel job failed: {}'.format(msg))
+            rt = {'success': False, 'errorMessage': msg}
+            return Response(rt)
+
+        worker_set = K8SWorker.objects.filter(avesjob__job_id=job_id)
+        if role_id is not None:
+            worker_set = worker_set.filter(role_index=roleId)
+        serializer = WorkerLogSerializer(worker_set, many=True)
+        return Response(serializer.data)
