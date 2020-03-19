@@ -1,0 +1,68 @@
+# Copyright 2017 Google Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: v1
+data:
+  setup.env: |
+    export CPU_NUMS=4
+
+    # Django
+    export DJANGO_DEBUG_MODE="no"
+    export DJANGO_PROJ_PATH="/src/aves2/Aves2"
+    export DJANGO_PORT="8080"
+    export DJANGO_APP_DB_HOST="{{ .Values.mysql.host }}"
+    export DJANGO_APP_DB_PORT="{{ .Values.mysql.port }}"
+    export DJANGO_APP_DB_NAME="{{ .Values.mysql.dbName }}"
+    export DJANGO_APP_DB_USER="{{ .Values.mysql.user }}"
+    export DJANGO_APP_DB_PASS="{{ .Values.mysql.pass }}"
+
+    # Aves
+    export AVES_URL_PREFIX="{{ .Values.aves2.urlPrefix }}"
+    export AVES_API_HOST="http://{{ include "aves2.fullname" . }}.{{ .Release.Namespace }}:{{ .Values.service.port }}/{{ .Values.aves2.urlPrefix }}/"
+    export AVES_LOGIN_URL="{{ .Values.aves2.loginUrl }}"
+    export AVES_RUN_AS_ROOT="{{ .Values.aves2.runAsRoot }}"
+    export AVES_JOB_LABEL="{{ .Values.aves2.jobLabel }}"
+
+    # Oss
+    export ENABLE_OSS="{{ .Values.oss.enableOss }}"
+    export DEFAULT_S3_ACCESS_KEY_ID="{{ .Values.oss.accessKeyId }}"
+    export DEFAULT_S3_SECRET_ACCESS_KEY="{{ .Values.oss.secretKeyId }}"
+    export DEFAULT_S3_ENDPOINT="{{ .Values.oss.endpoint }}"
+
+    # RabbitMQ
+    export RABBITMQ_HOST="{{ .Values.rabbitmq.host }}"
+    export RABBITMQ_USER="{{ .Values.rabbitmq.user }}"
+    export RABBITMQ_PASS="{{ .Values.rabbitmq.pass }}"
+    export STATUS_REPORT_EXCHANGE="{{ .Values.rabbitmq.reportExchange }}"
+    export STATUS_REPORT_EXCHANGE_TYPE="{{ .Values.rabbitmq.reportExchangeType }}"
+    export STATUS_REPORT_ROUTING_KEY="{{ .Values.rabbitmq.reportExchangeRoutingKey }}"
+
+    # Celery
+    export C_FORCE_ROOT="yes"
+    export CELERY_BROKER_URL="{{ .Values.celery.brokerUrl }}"
+    export CELERY_TASK_DEFAULT_QUEUE="{{ .Values.celery.defaultQueue }}"
+    export CELERY_CONCURRENCY={{ .Values.celery.concurrency }} 
+
+    # SSO
+    export SSO_LOGIN_URL="{{ .Values.sso.loginUrl }}"
+    export SSO_LOGOUT_URL="{{ .Values.sso.logoutUrl }}""
+    export SSO_COOKIE="{{ .Values.sso.cookie }}""
+    export SSO_TICKET_VERIFY_URL="{{ .Values.sso.tickeyVerifyUrl }}"
+    export SSO_PAI_AUTH_URL="{{ .Values.sso.authUrl }}"
+    export SSO_PAI_AUTH_TOKEN="{{ .Values.sso.authToken }}"
+
+kind: ConfigMap
+metadata:
+  name: aves2-env-cfg
+  namespace: {{ .Release.Namespace }}
