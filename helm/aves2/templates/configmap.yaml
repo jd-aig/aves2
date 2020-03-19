@@ -52,7 +52,7 @@ data:
     export C_FORCE_ROOT="yes"
     export CELERY_BROKER_URL="{{ .Values.celery.brokerUrl }}"
     export CELERY_TASK_DEFAULT_QUEUE="{{ .Values.celery.defaultQueue }}"
-    export CELERY_CONCURRENCY={{ .Values.celery.concurrency }} 
+    export CELERY_CONCURRENCY={{ .Values.celery.concurrency }}
 
     # SSO
     export SSO_LOGIN_URL="{{ .Values.sso.loginUrl }}"
