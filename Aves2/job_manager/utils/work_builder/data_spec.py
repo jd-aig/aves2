@@ -66,8 +66,13 @@ class VirtualDataSpec(object):
     def gen_gather_data_cmd(self):
         return None
 
+    def gen_clean_data_cmd(self):
+        return None
+
     @property
     def data_prepare_cmd(self):
+        """ Render bash script for preparing source code and input data
+        """
         cmd = self.gen_prepare_data_cmd()
         if cmd:
             return cmd
@@ -76,7 +81,21 @@ class VirtualDataSpec(object):
 
     @property
     def data_gather_cmd(self):
+        """ Render bash script for saving output
+        """
         cmd = self.gen_gather_data_cmd()
+        if cmd:
+            return cmd
+        else:
+            return ''
+
+    @property
+    def data_clean_cmd(self):
+        """ Render bash script for cleaning container data
+
+        Data should be cleaned only if data are saved in hostpath
+        """
+        cmd = self.gen_clean_data_cmd()
         if cmd:
             return cmd
         else:
@@ -115,6 +134,9 @@ class OSSFileDataSpec(VirtualDataSpec):
             'dst': os.path.join(self.src_path, self.filename),
         }
         return tpl.render(context)
+
+    def gen_clean_data_cmd(self):
+        return f'\\rm -rf {self.aves_path}/*'
 
 
 class K8SPvcDataSpec(VirtualDataSpec):
