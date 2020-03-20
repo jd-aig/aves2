@@ -19,10 +19,11 @@ class DataSpecKind:
     SOUCECODE = 'sourcecode'
     INPUT = 'input'
     OUTPUT = 'output'
+    LOG = 'log'
 
     @classmethod
     def list(cls):
-        return [cls.SOUCECODE, cls.INPUT, cls.OUTPUT]
+        return [cls.SOUCECODE, cls.INPUT, cls.OUTPUT, cls.LOG]
 
 
 class VirtualDataSpec(object):
@@ -30,7 +31,8 @@ class VirtualDataSpec(object):
     base_path_map = {
         'sourcecode': '/AVES/src/',
         'input': '/AVES/data/',
-        'output': '/AVES/output/'
+        'output': '/AVES/output/',
+        'log': '/AVES/log',
     }
 
     def __init__(self, spec_type, src_path, filename, data_name, data_kind, readonly=True):
@@ -66,8 +68,13 @@ class VirtualDataSpec(object):
     def gen_gather_data_cmd(self):
         return None
 
+    def gen_clean_data_cmd(self):
+        return None
+
     @property
     def data_prepare_cmd(self):
+        """ Render bash script for preparing source code and input data
+        """
         cmd = self.gen_prepare_data_cmd()
         if cmd:
             return cmd
@@ -76,7 +83,21 @@ class VirtualDataSpec(object):
 
     @property
     def data_gather_cmd(self):
+        """ Render bash script for saving output
+        """
         cmd = self.gen_gather_data_cmd()
+        if cmd:
+            return cmd
+        else:
+            return ''
+
+    @property
+    def data_clean_cmd(self):
+        """ Render bash script for cleaning container data
+
+        Data should be cleaned only if data are saved in hostpath
+        """
+        cmd = self.gen_clean_data_cmd()
         if cmd:
             return cmd
         else:
@@ -116,13 +137,16 @@ class OSSFileDataSpec(VirtualDataSpec):
         }
         return tpl.render(context)
 
+    def gen_clean_data_cmd(self):
+        return f'\\rm -rf {self.aves_path}/*'
+
 
 class K8SPvcDataSpec(VirtualDataSpec):
     def __init__(self, src_path, filename, data_name, data_kind, pvc_name, readonly=True):
         spec_type = 'K8SPVC'
         super(K8SPvcDataSpec, self).__init__(spec_type, src_path, filename, data_name, data_kind, readonly)
         self.pvc_name = pvc_name
-        if self.data_kind == DataSpecKind.OUTPUT:
+        if self.data_kind in [DataSpecKind.OUTPUT, DataSpecKind.LOG]:
             self.readonly = False
 
     def gen_volume(self):
@@ -155,7 +179,7 @@ class HostPathDataSpec(VirtualDataSpec):
         super(HostPathDataSpec, self).__init__(spec_type, src_path, filename, data_name, data_kind, readonly)
 
         self.vol_name = '{0}-{1}'.format(self.data_kind, self.data_name.replace('_', ''))
-        if self.data_kind == DataSpecKind.OUTPUT:
+        if self.data_kind in [DataSpecKind.OUTPUT, DataSpecKind.LOG]:
             self.readonly = False
 
     def gen_volume(self):

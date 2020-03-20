@@ -13,6 +13,8 @@ from django.core.management.base import BaseCommand, CommandError
 
 from job_manager import tasks
 
+logger = logging.getLogger('cmd')
+
 
 def quit_handler(signum, frame):
     sys.exit(0)
@@ -39,8 +41,11 @@ class Command(BaseCommand):
                 pod_name = pod.metadata.name
                 phase = pod.status.phase
 
-                self.stdout.write(f"receive pod event type:{event_type} pod_name:{pod_name} phase:{phase}")
-                if event_type != 'MODIFIED':
+                logger.info(f"receive pod event type:{event_type} pod_name:{pod_name} phase:{phase}")
+                if event['object'].status.conditions:
+                    event['object'].status.conditions = sorted(event['object'].status.conditions, key=lambda x: x.last_transition_time)
+
+                if event_type not in ['MODIFIED', 'ADDED']:
                     continue
                 try:
                     tasks.process_k8s_pod_event.apply_async(

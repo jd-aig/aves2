@@ -78,13 +78,25 @@ def process_k8s_pod_event(self, event):
             job.update_status(JobStatus.FINISHED, msg='Job finished')
     elif phase == K8SPodPhase.FAILED \
             and worker.k8s_status in [WorkerStatus.STARTING, WorkerStatus.RUNNING]:
-        worker.update_status(WorkerStatus.FINISHED)
+        worker.update_status(WorkerStatus.FAILURE)
         job = worker.avesjob
         if job.status in [JobStatus.STARTING, JobStatus.RUNNING] and \
             job.k8s_worker.filter(k8s_status__in=[
                                     WorkerStatus.STARTING,
                                     WorkerStatus.RUNNING]).count() == 0:
-            job.update_status(JobStatus.FAILURE, msg=f'{pod_name} failed')
+            msg = f'{job.msg}; {pod_name} failed'.strip('; ')
+            job.update_status(JobStatus.FAILURE, msg=msg)
+    elif phase == K8SPodPhase.PENDING:
+        container_statuses = pod.status.container_statuses
+        if container_statuses and container_statuses[0].state.waiting:
+            waiting_reason = container_statuses[0].state.waiting.reason
+            if waiting_reason in ['ImagePullBackOff', 'ErrImagePull'] \
+                    and worker.k8s_status in [WorkerStatus.STARTING, WorkerStatus.RUNNING]:
+                worker.update_status(WorkerStatus.FAILURE, msg=waiting_reason)
+                job = worker.avesjob
+                msg = f'{job.msg}; {pod_name} {waiting_reason}'.strip('; ')
+                job.update_status(JobStatus.FAILURE, msg=msg)
+                job.clean_work(force=True)
 
 
 @shared_task(name='report-avesjob-status', bind=True)

@@ -88,6 +88,7 @@ class AvesJob(models.Model):
     status = models.CharField(max_length=16, blank=True, null=False, choices=STATUS_MAP, default=JobStatus.NEW)
     need_report = models.BooleanField(blank=True, null=False, default=False)
     token = models.CharField(max_length=16, blank=True, null=False, default='')
+    msg = models.CharField(max_length=512, blank=True, null=False, default='')
     create_time = models.DateTimeField(auto_now_add=True)
     update_time = models.DateTimeField(auto_now=True)
 
@@ -167,6 +168,7 @@ class AvesJob(models.Model):
         from .tasks import report_avesjob_status
         logger.info(f'Job status changed: {self}, {status}, {msg}')
         self.status = status
+        self.msg = msg
         self.save()
         if self.need_report:
             report_avesjob_status.apply_async((self.job_id, status, msg))

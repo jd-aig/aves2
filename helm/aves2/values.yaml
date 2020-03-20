@@ -1,0 +1,89 @@
+# Default values for aves2.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+image:
+  repository: <replace with your repository url>
+  tag: stable
+  pullPolicy: IfNotPresent
+
+nameOverride: ""
+fullnameOverride: ""
+
+aves2:
+  debug: "no"   # run aves2 server in debug mode. yes/no
+  urlPrefix: "aves2"
+  loginUrl: ""
+  runAsRoot: "yes"  # run aves2 jobs with root user. yes/no
+  jobLabel: "aves-training"  # job pod will be labed app=<jobLabel>
+
+oss:
+  enableOss: "no"  # run aves2 job with OSSFile mode. yes/no
+  accessKeyId: ""
+  secretKeyId: ""
+  endpoint: ""
+
+rabbitmq:
+  host: ""
+  user: ""
+  pass: ""
+  reportExchange: "ai.aves.status"
+  reportExchangeType: "topic"
+  reportExchangeRoutingKey: "status.aves"
+
+celery:
+  brokerUrl: ""
+  defaultQueue: "celery"
+  concurrency: 10
+
+sso:
+  loginUrl: ""
+  logoutUrl: ""
+  cookie: ""
+  tickeyVerifyUrl: ""
+  authUrl: ""
+  authToken: ""
+
+mysql:
+  host: ""
+  port: "3306"
+  dbName: ""
+  user: ""
+  pass: ""
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: true
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  paths: ['/aves2/']
+  hosts:
+    - chart-example.local
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #  cpu: 100m
+  #  memory: 128Mi
+  # requests:
+  #  cpu: 100m
+  #  memory: 128Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}

@@ -10,13 +10,14 @@ from jinja2 import PackageLoader, Environment, FileSystemLoader
 TEMPLATE_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'templates')
 
 
-def gen_aves_run_script(code_spec, input_specs, output_specs):
+def gen_aves_run_script(code_spec, input_specs, output_specs, log_spec):
     tpl_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'templates')
     env = Environment(loader=FileSystemLoader(tpl_path))
     tpl = env.get_template(os.path.join('aves_run.sh.tmpl'))
 
     context = {
         'code_spec': code_spec,
+        'log_spec': log_spec,
         'input_specs': input_specs,
         'output_specs': output_specs,
         'run_as_root': settings.AVES_RUN_AS_ROOT
@@ -39,4 +40,10 @@ def gen_aves_dist_envs_script():
 def gen_aves_report_script():
     tpl_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'templates')
     with open(os.path.join(tpl_path, 'aves_report.py')) as f:
+        return f.read()
+
+
+def gen_aves_run_wrapper():
+    tpl_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'templates')
+    with open(os.path.join(tpl_path, 'aves_run_wrapper.sh')) as f:
         return f.read()
