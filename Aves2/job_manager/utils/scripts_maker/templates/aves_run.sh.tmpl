@@ -310,6 +310,10 @@ LOG_INFO "saving result..."
 {{ output_i.data_gather_cmd | safe }}
 {% endfor %}
 
+{% if log_spec %}
+{{ log_spec.data_gather_cmd | safe }}
+{% endif %}
+
 # ------------------------------------------------------------------ #
 # Clean data
 # ------------------------------------------------------------------ #

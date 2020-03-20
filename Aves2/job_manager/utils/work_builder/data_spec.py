@@ -19,10 +19,11 @@ class DataSpecKind:
     SOUCECODE = 'sourcecode'
     INPUT = 'input'
     OUTPUT = 'output'
+    LOG = 'log'
 
     @classmethod
     def list(cls):
-        return [cls.SOUCECODE, cls.INPUT, cls.OUTPUT]
+        return [cls.SOUCECODE, cls.INPUT, cls.OUTPUT, cls.LOG]
 
 
 class VirtualDataSpec(object):
@@ -30,7 +31,8 @@ class VirtualDataSpec(object):
     base_path_map = {
         'sourcecode': '/AVES/src/',
         'input': '/AVES/data/',
-        'output': '/AVES/output/'
+        'output': '/AVES/output/',
+        'log': '/AVES/log',
     }
 
     def __init__(self, spec_type, src_path, filename, data_name, data_kind, readonly=True):
@@ -144,7 +146,7 @@ class K8SPvcDataSpec(VirtualDataSpec):
         spec_type = 'K8SPVC'
         super(K8SPvcDataSpec, self).__init__(spec_type, src_path, filename, data_name, data_kind, readonly)
         self.pvc_name = pvc_name
-        if self.data_kind == DataSpecKind.OUTPUT:
+        if self.data_kind in [DataSpecKind.OUTPUT, DataSpecKind.LOG]:
             self.readonly = False
 
     def gen_volume(self):
@@ -177,7 +179,7 @@ class HostPathDataSpec(VirtualDataSpec):
         super(HostPathDataSpec, self).__init__(spec_type, src_path, filename, data_name, data_kind, readonly)
 
         self.vol_name = '{0}-{1}'.format(self.data_kind, self.data_name.replace('_', ''))
-        if self.data_kind == DataSpecKind.OUTPUT:
+        if self.data_kind in [DataSpecKind.OUTPUT, DataSpecKind.LOG]:
             self.readonly = False
 
     def gen_volume(self):

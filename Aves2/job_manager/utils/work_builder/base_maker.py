@@ -42,6 +42,10 @@ class BaseMaker:
         self.sourcecode_spec = make_data_spec('src', _ext_data(self.avesjob.code_spec), DataSpecKind.SOUCECODE)
         self.input_specs = [make_data_spec(n, _ext_data(d), DataSpecKind.INPUT) for n, d in self.avesjob.input_spec.items()]
         self.output_specs = [make_data_spec(n, _ext_data(d), DataSpecKind.OUTPUT) for n, d in self.avesjob.output_spec.items()]
+        if self.avesjob.log_dir:
+            self.log_spec = make_data_spec('log', _ext_data(self.avesjob.log_dir), DataSpecKind.LOG)
+        else:
+            self.log_spec = None
 
     @staticmethod
     def _get_storage_type(data_path):
@@ -117,11 +121,12 @@ class BaseMaker:
         """
         configname = '{id}-aves-scripts'.format(id=self.target_worker.id)
         data = {}
-        aves_run_content = scripts_maker.gen_aves_run_script(self.sourcecode_spec, self.input_specs, self.output_specs)
+        aves_run_content = scripts_maker.gen_aves_run_script(self.sourcecode_spec, self.input_specs, self.output_specs, self.log_spec)
         data['aves_run.sh'] = aves_run_content
         data['aves_config_aws.sh'] = scripts_maker.gen_config_aws_script()
         data['aves_get_dist_envs.py'] = scripts_maker.gen_aves_dist_envs_script()
         data['aves_report.py'] = scripts_maker.gen_aves_report_script()
+        data['aves_run_wrapper.sh'] = scripts_maker.gen_aves_run_wrapper()
         return configname, data
 
     def gen_pod_labels(self):
@@ -139,7 +144,7 @@ class BaseMaker:
         return self.avesjob.image
 
     def gen_command(self):
-        return ['bash', '/aves_bin/aves_run.sh']
+        return ['bash', '/aves_bin/aves_run_wrapper.sh']
 
     def _gen_aves_args(self):
         is_distribute = 'yes' if self.avesjob.is_distribute else 'no'
@@ -232,6 +237,10 @@ class BaseMaker:
                     {
                         'key': 'aves_report.py',
                         'path': 'aves_report.py'
+                    },
+                    {
+                        'key': 'aves_run_wrapper.sh',
+                        'path': 'aves_run_wrapper.sh'
                     }
                 ]
             }
