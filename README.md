@@ -87,6 +87,6 @@ helm install --name <my-release> helm/aves2/
 
 可以通过指定values文件安装, 更多配置项参考**helm/aves2/values.yaml**。
 
-`
+```
 helm install --name <my-release> -f values.yaml helm/aves2/
-`
+```
