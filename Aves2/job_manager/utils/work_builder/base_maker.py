@@ -37,7 +37,10 @@ class BaseMaker:
             if _data['type'] == DataSpecType.OSS_FILE:
                 _data['storage_config']['endpoint'] = self.avesjob.storage_config['config']['S3Endpoint']
                 # TODO: specify the correct profile name
-                _data['storage_config']['profile_name'] = 'user_oss'
+                if self.avesjob.username == 'comp':
+                    _data['storage_config']['profile_name'] = 'pai_oss'
+                else:
+                    _data['storage_config']['profile_name'] = 'user_oss'
             return _data
         self.sourcecode_spec = make_data_spec('src', _ext_data(self.avesjob.code_spec), DataSpecKind.SOUCECODE)
         self.input_specs = [make_data_spec(n, _ext_data(d), DataSpecKind.INPUT) for n, d in self.avesjob.input_spec.items()]
