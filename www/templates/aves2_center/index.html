@@ -61,10 +61,6 @@
                           <span class="badge badge-secondary">GPU {{worker.gpu_request}}</span>
                           {% endif %}
                           </h6>
-                          <iframe src="http://mp.ai.jd.com/d-solo/6581e46e4e5c7ba40a07646395ef7b23/k8s-compute-resources-pod?refresh=10s&orgId=1&var-datasource=train-k8s&var-namespace={{ worker.namespace }}&var-po
-d={{ worker.worker_name }}&panelId=0&theme=light" width="450" height="200" frameborder="0"></iframe>
-                          <iframe src="http://mp.ai.jd.com/d-solo/6581e46e4e5c7ba40a07646395ef7b23/k8s-compute-resources-pod?refresh=10s&orgId=1&var-datasource=train-k8s&var-namespace={{ worker.namespace }}&var-po
-d={{ worker.worker_name }}&panelId=2&theme=light" width="450" height="200" frameborder="0"></iframe>
                           <hr>
                           <button type="button" class="btn btn-outline-primary btn-sm" data-toggle="modal" data-target="#workerInfoModal" data-id="{{ worker.id }}">Worker Info</button>
                           <button type="button" class="btn btn-outline-primary btn-sm" data-toggle="modal" data-target="#workerLogsModal" data-id="{{ worker.id }}">Worker Log</button>

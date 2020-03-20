@@ -38,14 +38,6 @@ celery:
   defaultQueue: "celery"
   concurrency: 10
 
-sso:
-  loginUrl: ""
-  logoutUrl: ""
-  cookie: ""
-  tickeyVerifyUrl: ""
-  authUrl: ""
-  authToken: ""
-
 mysql:
   host: ""
   port: "3306"

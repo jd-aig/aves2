@@ -29,7 +29,6 @@ urlpatterns = [
     path('accounts/login/', auth_views.LoginView.as_view(), name="user_login"),
     path('accounts/logout/', auth_views.logout_then_login, name='logout'),
     path('admin/', admin.site.urls),
-    # path('k8s/', include('k8s_manager.urls')),
     path('center/', include('aves2_center.urls')),
     path('api/', include('job_manager.urls')),
 ]

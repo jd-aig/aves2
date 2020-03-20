@@ -30,7 +30,6 @@ data:
     # Aves
     export AVES_URL_PREFIX="{{ .Values.aves2.urlPrefix }}"
     export AVES_API_HOST="http://{{ include "aves2.fullname" . }}.{{ .Release.Namespace }}:{{ .Values.service.port }}/{{ .Values.aves2.urlPrefix }}/"
-    export AVES_LOGIN_URL="{{ .Values.aves2.loginUrl }}"
     export AVES_RUN_AS_ROOT="{{ .Values.aves2.runAsRoot }}"
     export AVES_JOB_LABEL="{{ .Values.aves2.jobLabel }}"
 
@@ -53,14 +52,6 @@ data:
     export CELERY_BROKER_URL="{{ .Values.celery.brokerUrl }}"
     export CELERY_TASK_DEFAULT_QUEUE="{{ .Values.celery.defaultQueue }}"
     export CELERY_CONCURRENCY={{ .Values.celery.concurrency }}
-
-    # SSO
-    export SSO_LOGIN_URL="{{ .Values.sso.loginUrl }}"
-    export SSO_LOGOUT_URL="{{ .Values.sso.logoutUrl }}""
-    export SSO_COOKIE="{{ .Values.sso.cookie }}""
-    export SSO_TICKET_VERIFY_URL="{{ .Values.sso.tickeyVerifyUrl }}"
-    export SSO_PAI_AUTH_URL="{{ .Values.sso.authUrl }}"
-    export SSO_PAI_AUTH_TOKEN="{{ .Values.sso.authToken }}"
 
 kind: ConfigMap
 metadata:

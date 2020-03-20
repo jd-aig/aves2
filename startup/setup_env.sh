@@ -13,7 +13,6 @@ export DJANGO_APP_DB_PASS=""
 # Aves
 export AVES_URL_PREFIX="aves2"
 export AVES_API_HOST=""
-export AVES_LOGIN_URL=""
 export AVES_RUN_AS_ROOT="yes"  # yes/no
 export AVES_JOB_LABEL="aves-training"
 
@@ -36,11 +35,3 @@ export C_FORCE_ROOT="yes"  # yes/no
 export CELERY_BROKER_URL=""
 export CELERY_TASK_DEFAULT_QUEUE="aves2.celery"
 export CELERY_CONCURRENCY=10
-
-# SSO
-export SSO_LOGIN_URL=""
-export SSO_LOGOUT_URL=""
-export SSO_COOKIE=""
-export SSO_TICKET_VERIFY_URL=""
-export SSO_PAI_AUTH_URL=""
-export SSO_PAI_AUTH_TOKEN=""
