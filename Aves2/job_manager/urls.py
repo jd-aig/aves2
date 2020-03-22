@@ -19,6 +19,7 @@ from django.conf.urls import url
 from rest_framework.routers import DefaultRouter
 
 from job_manager.views import AvesJobViewSet, AvesWorkerViewSet
+from job_manager.views import client_check
 
 
 router = DefaultRouter()
@@ -26,6 +27,7 @@ router.register(r'aves_job', AvesJobViewSet, base_name="aves_job")
 router.register(r'aves_worker', AvesWorkerViewSet, base_name="aves_worker")
 
 urlpatterns = [
+    path('client_check', client_check, name='client_check')
 ]
 
 urlpatterns += router.urls
