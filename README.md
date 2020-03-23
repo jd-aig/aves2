@@ -69,13 +69,13 @@ helm install --name <my-release> helm/aves2/
 | `oss.accessKeyId`                   | OSS Access key              | `null`                 |
 | `oss.secretKeyId`                   | OSS Secret key              | `null`                 |
 | `oss.endpoint`                      | OSS endpoint                | `null`                 |
-| `rabbitmq.host`                     | RabbitMQ Addr               | `IfNotPresent`         |
-| `rabbitmq.user`                     | RabbitMQ user               | `nfs-client`           |
-| `rabbitmq.pass`                     | RabbitMQ password           | `false`                |
-| `rabbitmq.reportExchange`           | RabbitMQ exchange           | `true`                 |
-| `rabbitmq.reportExchangeType`       | RabbitMQ exchange type      | `Delete`               |
-| `rabbitmq.reportExchangeRoutingKey` | RabbitMQ routing key        | `null`                 |
-| `celery.brokerUrl`                  | Message broker addr         | `true`                 |
+| `rabbitmq.host`                     | RabbitMQ Addr               | `null`                 |
+| `rabbitmq.user`                     | RabbitMQ user               | `null`                 |
+| `rabbitmq.pass`                     | RabbitMQ password           | `null`                 |
+| `rabbitmq.reportExchange`           | RabbitMQ exchange           | `ai.aves.status`       |
+| `rabbitmq.reportExchangeType`       | RabbitMQ exchange type      | `topic`                |
+| `rabbitmq.reportExchangeRoutingKey` | RabbitMQ routing key        | `status.aves`          |
+| `celery.brokerUrl`                  | Message broker addr         | `null`                 |
 | `celery.defaultQueue`               | default celery task queue   | `celery`               |
 | `celery.concurrency`                | celery concurrency          | `10`                   |
 | `mysql.host`                        | Database host               | `null`                 |

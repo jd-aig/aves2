@@ -313,3 +313,12 @@ class AvesJobViewSet(viewsets.ModelViewSet):
             worker_set = worker_set.filter(role_index=roleId)
         serializer = WorkerLogSerializer(worker_set, many=True)
         return Response(serializer.data)
+
+
+@api_view(['GET'])
+def client_check(request):
+    version = request.GET.get('version')
+    if version in settings.ALLOWED_CLIENT_VERSION:
+        return Response({'success': True, 'errorMessage': ''})
+    else:
+        return Response({'success': False, 'errorMessage': 'please upgrade client'})

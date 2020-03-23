@@ -1,6 +1,8 @@
 import os
+import re
 import escapism
 
+from django.conf import settings
 from jinja2 import PackageLoader, Environment, FileSystemLoader
 from job_manager.utils.scripts_maker import TEMPLATE_PATH
 
@@ -183,10 +185,17 @@ class HostPathDataSpec(VirtualDataSpec):
             self.readonly = False
 
     def gen_volume(self):
+        src = self.src_path
+        p = re.compile("\d+.\d+.\d+.\d+:/")
+        if p.match(self.src_path):
+            for k, mount_path in settings.AVES_HOSTPATH_MAP.items():
+                if self.src_path.startswith(k):
+                    src =  self.src_path.replace(k, mount_path)
+                    break
         return {
             'name': self.vol_name,
             'hostPath': {
-                'path': self.src_path
+                'path': src
             }
         }
 

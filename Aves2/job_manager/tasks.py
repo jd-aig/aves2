@@ -90,11 +90,12 @@ def process_k8s_pod_event(self, event):
         container_statuses = pod.status.container_statuses
         if container_statuses and container_statuses[0].state.waiting:
             waiting_reason = container_statuses[0].state.waiting.reason
-            if waiting_reason in ['ImagePullBackOff', 'ErrImagePull'] \
+            waiting_msg = container_statuses[0].state.waiting.message
+            if waiting_reason in ['ImagePullBackOff', 'ErrImagePull', 'CreateContainerError'] \
                     and worker.k8s_status in [WorkerStatus.STARTING, WorkerStatus.RUNNING]:
                 worker.update_status(WorkerStatus.FAILURE, msg=waiting_reason)
                 job = worker.avesjob
-                msg = f'{job.msg}; {pod_name} {waiting_reason}'.strip('; ')
+                msg = f'{job.msg}; {pod_name} {waiting_reason} {waiting_msg}'.strip('; ')
                 job.update_status(JobStatus.FAILURE, msg=msg)
                 job.clean_work(force=True)
 
