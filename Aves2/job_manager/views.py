@@ -15,7 +15,7 @@ from rest_framework import status
 from rest_framework.exceptions import APIException
 from rest_framework.decorators import api_view, list_route, detail_route, action
 
-from job_manager.models import AvesJob, K8SWorker
+from job_manager.models import AvesJob, K8SWorker, User
 from job_manager.serializer import AvesJobSerializer, K8SWorkerSerializer, WorkerLogSerializer
 from job_manager import tasks
 from job_manager.aves2_schemas import validate_job, trans_job_data
@@ -244,6 +244,8 @@ class AvesJobViewSet(viewsets.ModelViewSet):
             logger.error('Submit job failed: {}'.format(msg))
             rt = {'success': False, 'errorMessage': msg}
             return Response(rt)
+
+        job_user, _ = User.objects.get_or_create(username=data['username'])
 
         transed_data = trans_job_data(data)
         serializer = self.get_serializer(data=transed_data)

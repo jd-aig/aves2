@@ -59,5 +59,6 @@ def trans_job_data(job):
         role_spec['gpu'] = role_spec['nvidia.com/gpu']
         role_spec.pop('nvidia.com/gpu')
         data['resource_spec'][role] = role_spec
+    data['need_report'] = True
 
     return data
