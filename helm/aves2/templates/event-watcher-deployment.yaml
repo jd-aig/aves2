@@ -25,7 +25,7 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command: ["/bin/sh", "-c"]
-          args: ["bash /src/aves2/startup/start_celery.sh /srv/env/setup.env"]
+          args: ["bash /src/aves2/startup/start_pod_watcher.sh /srv/env/setup.env"]
           volumeMounts:
             - name: config-volume
               mountPath: "/srv/env/"
