@@ -31,7 +31,7 @@ worker_schema = {
     },
     "port": {
       "$id": "#/properties/port",
-      "type": "string",
+      "type": "integer",
       "title": "The Port Schema",
       "default": "",
       "examples": [
