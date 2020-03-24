@@ -56,8 +56,8 @@ data:
 
     # SSO
     export SSO_LOGIN_URL="{{ .Values.sso.loginUrl }}"
-    export SSO_LOGOUT_URL="{{ .Values.sso.logoutUrl }}""
-    export SSO_COOKIE="{{ .Values.sso.cookie }}""
+    export SSO_LOGOUT_URL="{{ .Values.sso.logoutUrl }}"
+    export SSO_COOKIE="{{ .Values.sso.cookie }}"
     export SSO_TICKET_VERIFY_URL="{{ .Values.sso.tickeyVerifyUrl }}"
     export SSO_PAI_AUTH_URL="{{ .Values.sso.authUrl }}"
     export SSO_PAI_AUTH_TOKEN="{{ .Values.sso.authToken }}"
