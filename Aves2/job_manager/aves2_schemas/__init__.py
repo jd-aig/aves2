@@ -40,8 +40,6 @@ def trans_job_data(job):
     data['username'] = job['username']
     data['engine'] = job['engine']
     data['image'] = job['image']
-    data['distribute_type'] = job.get('distributeType')
-    data['is_distribute'] = True if data['distribute_type'] else False
     data['envs'] = job['envs']
     data['code_spec'] = job['codeSpec']
     data['input_spec'] = job['inputSpec']
@@ -60,5 +58,14 @@ def trans_job_data(job):
         role_spec.pop('nvidia.com/gpu')
         data['resource_spec'][role] = role_spec
     data['need_report'] = True
+
+    data['distribute_type'] = ''
+    if data['engine'].lower() == 'tensorflow' \
+            and 'ps' in data['resource_spec'].keys():
+        data['distribute_type'] = 'TF-PS'
+    elif data['engine'].lower() == 'horovod': 
+        data['distribute_type'] = 'HOROVOD'
+
+    data['is_distribute'] = True if data['distribute_type'] else False
 
     return data
