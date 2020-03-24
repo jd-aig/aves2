@@ -24,5 +24,5 @@ from aves2_center import views
 urlpatterns = [
     path('', views.home, name='aves_home'),
     path('token/', views.token, name='aves_token'),
-    path('<page>/', views.home, name='aves_jobs'),
+    path('<int:page>/', views.home, name='aves_jobs'),
 ]
