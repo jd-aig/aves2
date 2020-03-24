@@ -26,11 +26,10 @@ logger = logging.getLogger('aves2')
 
 
 def obtain_post_data(request):
-    # log_request_record(request)
-    data = request.POST.copy()
-    if data is not None:
-        if data == {}:
-            data = json.loads(request.body.decode('utf-8'))
+    try:
+        data = json.loads(request.body.decode('utf-8'))
+    except Exception as e:
+        data = request.POST.copy()
     logger.info(data)
     return data
 
