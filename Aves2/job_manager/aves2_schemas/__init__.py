@@ -28,6 +28,7 @@ def validate_job(job):
         # validate resourceSpec
         for key, data in job['resourceSpec'].items():
             validate(instance=data, schema=worker_schema)
+        return True, ''
     except Exception as e:
         return False, e
 
@@ -37,6 +38,7 @@ def trans_job_data(job):
     data['job_id'] = job['jobId']
     data['namespace'] = job['namespace']
     data['username'] = job['username']
+    data['engine'] = job['engine']
     data['image'] = job['image']
     data['distribute_type'] = job.get('distributeType')
     data['is_distribute'] = True if data['distribute_type'] else False
@@ -45,7 +47,8 @@ def trans_job_data(job):
     data['input_spec'] = job['inputSpec']
     data['output_spec'] = job['outputSpec']
     data['log_dir'] = job['logDir']
-    data['storage_mode'] = job['storageMode']
+    data['storage_mode'] = job['storageMode']['mode']
+    data['storage_config'] = job['storageMode']
 
     data['resource_spec'] = {}
     for role, role_spec in job['resourceSpec'].items():
