@@ -1,3 +1,6 @@
+import os
+import re
+
 from jsonschema import validate
 
 from .job_schema import job_schema
@@ -34,6 +37,7 @@ def validate_job(job):
 
 
 def trans_job_data(job):
+    pattern = re.compile("\S+\.(zip|tar.gz|gz|tgz|tar|)")
     data = {}
     data['job_id'] = job['jobId']
     data['namespace'] = job['namespace']
@@ -41,8 +45,22 @@ def trans_job_data(job):
     data['engine'] = job['engine']
     data['image'] = job['image']
     data['envs'] = job['envs']
+
     data['code_spec'] = job['codeSpec']
+    _path = data['code_spec']['path']
+    _filename = os.path.basename(_path)
+    if pattern.match(_filename):
+        data['code_spec']['path'] = _path
+        data['code_spec']['filename'] = _filename
+
     data['input_spec'] = job['inputSpec']
+    for k, d in data['input_spec'].items():
+        _path = d['path']
+        _filename = os.path.basename(_path)
+        if pattern.match(_filename):
+            d['path'] = _path
+            d['filename'] = _filename
+
     data['output_spec'] = job['outputSpec']
     data['log_dir'] = job['logDir']
     data['storage_mode'] = job['storageMode']['mode']
