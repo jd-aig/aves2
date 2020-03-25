@@ -50,7 +50,7 @@ def trans_job_data(job):
     _path = data['code_spec']['path']
     _filename = os.path.basename(_path)
     if pattern.match(_filename):
-        data['code_spec']['path'] = _path
+        data['code_spec']['path'] = _path.rstrip(_filename)
         data['code_spec']['filename'] = _filename
 
     data['input_spec'] = job['inputSpec']
@@ -58,7 +58,7 @@ def trans_job_data(job):
         _path = d['path']
         _filename = os.path.basename(_path)
         if pattern.match(_filename):
-            d['path'] = _path
+            d['path'] = _path.rstrip(_filename)
             d['filename'] = _filename
 
     data['output_spec'] = job['outputSpec']
