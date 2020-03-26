@@ -13,7 +13,6 @@ function report_fail() {
 }
 
 if [ $filename ]; then
-    mkdir /AVES/src
     aws s3 --endpoint-url=$oss_endpoint --only-show-errors --profile=$oss_profile cp $src /tmp/$filename
     [ $? == 0 ] || report_fail "fail to download $src"
 

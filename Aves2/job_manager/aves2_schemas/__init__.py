@@ -1,3 +1,6 @@
+import os
+import re
+
 from jsonschema import validate
 
 from .job_schema import job_schema
@@ -34,17 +37,30 @@ def validate_job(job):
 
 
 def trans_job_data(job):
+    pattern = re.compile("\S+\.(zip|tar.gz|gz|tgz|tar|)")
     data = {}
     data['job_id'] = job['jobId']
     data['namespace'] = job['namespace']
     data['username'] = job['username']
     data['engine'] = job['engine']
     data['image'] = job['image']
-    data['distribute_type'] = job.get('distributeType')
-    data['is_distribute'] = True if data['distribute_type'] else False
     data['envs'] = job['envs']
+
     data['code_spec'] = job['codeSpec']
+    _path = data['code_spec']['path']
+    _filename = os.path.basename(_path)
+    if pattern.match(_filename):
+        data['code_spec']['path'] = _path.rstrip(_filename)
+        data['code_spec']['filename'] = _filename
+
     data['input_spec'] = job['inputSpec']
+    for k, d in data['input_spec'].items():
+        _path = d['path']
+        _filename = os.path.basename(_path)
+        if pattern.match(_filename):
+            d['path'] = _path.rstrip(_filename)
+            d['filename'] = _filename
+
     data['output_spec'] = job['outputSpec']
     data['log_dir'] = job['logDir']
     data['storage_mode'] = job['storageMode']['mode']
@@ -59,5 +75,15 @@ def trans_job_data(job):
         role_spec['gpu'] = role_spec['nvidia.com/gpu']
         role_spec.pop('nvidia.com/gpu')
         data['resource_spec'][role] = role_spec
+    data['need_report'] = True
+
+    data['distribute_type'] = ''
+    if data['engine'].lower() == 'tensorflow' \
+            and 'ps' in data['resource_spec'].keys():
+        data['distribute_type'] = 'TF-PS'
+    elif data['engine'].lower() == 'horovod': 
+        data['distribute_type'] = 'HOROVOD'
+
+    data['is_distribute'] = True if data['distribute_type'] else False
 
     return data

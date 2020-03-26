@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "aves2.fullname" . }}-event-watcher
+  labels:
+    app.kubernetes.io/name: {{ include "aves2.name" . }}-event-watcher
+    helm.sh/chart: {{ include "aves2.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "aves2.name" . }}-event-watcher
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "aves2.name" . }}-event-watcher
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      serviceAccountName: aves2
+      containers:
+        - name: {{ .Chart.Name }}-event-watcher
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/bin/sh", "-c"]
+          args: ["bash /src/aves2/startup/start_pod_watcher.sh /srv/env/setup.env"]
+          volumeMounts:
+            - name: config-volume
+              mountPath: "/srv/env/"
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: config-volume
+          configMap:
+            name: aves2-env-cfg
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+    {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}

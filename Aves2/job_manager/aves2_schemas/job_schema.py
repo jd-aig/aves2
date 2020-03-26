@@ -10,7 +10,7 @@ job_schema = {
     "namespace",
     "engine",
     "image",
-    "distributeType",
+    # "distributeType",
     "entryPoint",
     "envs",
     "codeSpec",
@@ -72,16 +72,16 @@ job_schema = {
       ],
       "pattern": "^(.*)$"
     },
-    "distributeType": {
-      "$id": "#/properties/distributeType",
-      "type": "string",
-      "title": "The Distributetype Schema",
-      "default": "",
-      "examples": [
-        "", "HOROVOD", "TF-PS"
-      ],
-      "pattern": "^(.*)$"
-    },
+    # "distributeType": {
+    #   "$id": "#/properties/distributeType",
+    #   "type": "string",
+    #   "title": "The Distributetype Schema",
+    #   "default": "",
+    #   "examples": [
+    #     "", "HOROVOD", "TF-PS"
+    #   ],
+    #   "pattern": "^(.*)$"
+    # },
     "entryPoint": {
       "$id": "#/properties/entryPoint",
       "type": "string",

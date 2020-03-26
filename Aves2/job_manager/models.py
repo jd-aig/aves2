@@ -111,7 +111,7 @@ class AvesJob(models.Model):
                 token = Token.objects.get(user=self._user).key
                 setattr(self, '_token', token)
             except Exception as e:
-                token = Token.objects.crate(user=request.user).key
+                token = Token.objects.create(user=self._user).key
                 setattr(self, '_token', token)
         return self._token
 
