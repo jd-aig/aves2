@@ -7,7 +7,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth import authenticate, login
 
 from rest_framework.authtoken.models import Token
-from job_manager.models import AvesJob, K8SWorker
+from job_manager.models import AvesJob, AvesWorker
 
 
 logger = logging.getLogger('aves2')

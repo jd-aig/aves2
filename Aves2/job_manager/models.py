@@ -116,21 +116,21 @@ class AvesJob(models.Model):
 
     @property
     def all_workers(self):
-        return self.k8s_worker.all()
+        return self.aves_worker.all()
 
     @property
     def merged_id(self):
         return 'aves{0}-{1}-{2}-{3}'.format(self.id, self.username, self.namespace, self.job_id)
 
-    def _make_k8s_worker_name(self, role, role_index):
+    def _make_aves_worker_name(self, role, role_index):
         return '{0}-{1}-{2}'.format(self.merged_id, role, role_index)
 
-    def make_k8s_workers(self):
-        if self.k8s_worker.count() > 0:
-            logger.error('{0}: Fail to make k8s workers, already exist'.format(self))
+    def make_aves_workers(self):
+        if self.aves_worker.count() > 0:
+            logger.error('{0}: Fail to make aves workers, already exist'.format(self))
             raise Exception('Not Allowed')
 
-        k8s_workers = []
+        aves_workers = []
         no_master_role = True if 'master' not in self.resource_spec.keys() else False
         no_ps_role = True if 'ps' not in self.resource_spec.keys() else False
         for role, spec in self.resource_spec.items():
@@ -143,12 +143,12 @@ class AvesJob(models.Model):
                     is_main_node = True
                 else:
                     is_main_node = False
-                worker = K8SWorker(
+                worker = AvesWorker(
                     username=self.username,
                     namespace=self.namespace,
                     engine=self.engine,
                     avesjob=self,
-                    worker_name=self._make_k8s_worker_name(role, role_index),
+                    worker_name=self._make_aves_worker_name(role, role_index),
                     is_main_node=is_main_node,
                     avesrole=role,
                     role_index=role_index,
@@ -160,8 +160,8 @@ class AvesJob(models.Model):
                     entrypoint=spec.get('entry_point'),
                     args=spec.get('args', [])
                 )
-                k8s_workers.append(worker)
-        K8SWorker.objects.bulk_create(k8s_workers)
+                aves_workers.append(worker)
+        AvesWorker.objects.bulk_create(aves_workers)
 
     def update_status(self, status, msg=''):
         from .tasks import report_avesjob_status
@@ -176,26 +176,26 @@ class AvesJob(models.Model):
 
         :return: (True/False, err_msg)
         """
-        if self.k8s_worker.count() == 0:
+        if self.aves_worker.count() == 0:
             try:
-                self.make_k8s_workers()
+                self.make_aves_workers()
             except Exception as e:
                 err = 'Fail to create aves workers'
                 logger.error('fail to create aves workers', exc_info=True)
                 return False, err
 
-        for worker_i in self.k8s_worker.all():
+        for worker_i in self.aves_worker.all():
             pod, err = worker_i.start()
             if err:
                 return False, err
         return True, None
 
     def cancel(self):
-        """ Cancel avesjob and del related k8s resources
+        """ Cancel avesjob and del related k8s/docker resources
 
         :return: (True/False, err_msg)
         """
-        for worker_i in self.k8s_worker.all():
+        for worker_i in self.aves_worker.all():
             rt = worker_i.stop()
             if not rt:
                 return False, '{0}: Fail to stop work {1}'.format(self, worker_i)
@@ -203,7 +203,7 @@ class AvesJob(models.Model):
 
     def clean_work(self, force=False):
         logger.info('{0}: clean job. job workers will be cleaned'.format(self))
-        for worker_i in self.k8s_worker.all():
+        for worker_i in self.aves_worker.all():
             if self.debug == True and worker_i.is_main_node and force == False:
                 continue
             worker_i.stop()
@@ -217,7 +217,7 @@ class AvesJob(models.Model):
             return {}
 
     def _get_dist_envs_for_tfps(self):
-        all_workers = self.k8s_worker.all()
+        all_workers = self.aves_worker.all()
         ps = [str(i.id) for i in all_workers if i.avesrole == 'ps']
         workers = [str(i.id) for i in all_workers if i.avesrole == 'worker']
 
@@ -228,7 +228,7 @@ class AvesJob(models.Model):
         return {'AVES_TF_PS_HOSTS': ','.join(ps_ips), 'AVES_TF_WORKER_HOSTS': ','.join(worker_ips)}
 
     def _get_dist_envs_for_horovod(self):
-        all_workers = self.k8s_worker.all()
+        all_workers = self.aves_worker.all()
         np = 0
         hosts = []
         pods, msg = k8s_client.get_namespaced_pod_list(self.namespace, selector={'jobId': self.job_id})
@@ -269,7 +269,7 @@ class WorkerStatus:
     CANCELED = 'CANCELED'
 
 
-class K8SWorker(models.Model):
+class AvesWorker(models.Model):
     """
     """
     STATUS_MAP = (
@@ -286,7 +286,7 @@ class K8SWorker(models.Model):
     username = models.CharField(max_length=128, blank=False, null=False, default='')
     namespace = models.CharField(max_length=32, blank=False, null=False)
     engine = models.CharField(max_length=64, blank=False, null=False)
-    avesjob = models.ForeignKey('AvesJob', on_delete=models.CASCADE, related_name='k8s_worker', blank=False, null=False)
+    avesjob = models.ForeignKey('AvesJob', on_delete=models.CASCADE, related_name='aves_worker', blank=False, null=False)
     # worker_name = <avesjob.merged_id>-<avesrole>-<role_index>
     worker_name = models.CharField(max_length=256, blank=False, null=False, default='')
     is_main_node = models.BooleanField(blank=True, null=False, default=True)
@@ -309,7 +309,7 @@ class K8SWorker(models.Model):
     update_time = models.DateTimeField(auto_now=True)
 
     def start(self):
-        """ Start k8s worker pod
+        """ Start aves worker pod
 
         :return: result, err_msg
         """
@@ -348,7 +348,7 @@ class K8SWorker(models.Model):
         return rt, err
 
     def stop(self):
-        """ Stop k8s worker pod
+        """ Stop aves worker pod
 
         :return: result, err_msg
         """
@@ -418,4 +418,4 @@ class K8SWorker(models.Model):
         return self.worker_name
 
     class Meta:
-        db_table = 'k8sworker'
+        db_table = 'avesworker'

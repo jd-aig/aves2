@@ -1,5 +1,5 @@
 from django.contrib import admin
-from job_manager.models import AvesJob, K8SWorker
+from job_manager.models import AvesJob, AvesWorker
 
 # Register your models here.
 
@@ -19,7 +19,7 @@ class AvesJobAdmin(admin.ModelAdmin):
     ordering = ('-id',)
 
 
-class K8SWorkerAdmin(admin.ModelAdmin):
+class AvesWorkerAdmin(admin.ModelAdmin):
     list_display = (
         'id',
         'worker_name',
@@ -36,4 +36,4 @@ class K8SWorkerAdmin(admin.ModelAdmin):
 
 
 admin.site.register(AvesJob, AvesJobAdmin)
-admin.site.register(K8SWorker, K8SWorkerAdmin)
+admin.site.register(AvesWorker, AvesWorkerAdmin)

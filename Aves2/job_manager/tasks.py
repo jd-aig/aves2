@@ -18,7 +18,7 @@ from django.conf import settings
 from celery import task, shared_task, chain, group
 from celery_once import QueueOnce
 
-from job_manager.models import JobStatus, WorkerStatus, AvesJob, K8SWorker
+from job_manager.models import JobStatus, WorkerStatus, AvesJob, AvesWorker
 from kubernetes_client import K8SPodPhase
 from common_utils.rabbitmq import get_connection
 
@@ -66,13 +66,13 @@ def process_k8s_pod_event(self, event):
     worker_id = pod.metadata.labels.get('workerId')
     logger.info(f"receive pod event type:{event_type} pod_name:{pod_name} phase:{phase}")
 
-    worker = K8SWorker.objects.get(id=worker_id)
+    worker = AvesWorker.objects.get(id=worker_id)
     if phase == K8SPodPhase.SUCCEEDED \
             and worker.k8s_status in [WorkerStatus.STARTING, WorkerStatus.RUNNING]:
         worker.update_status(WorkerStatus.FINISHED)
         job = worker.avesjob
         if job.status in [JobStatus.STARTING, JobStatus.RUNNING] and \
-            job.k8s_worker.filter(k8s_status__in=[
+            job.aves_worker.filter(k8s_status__in=[
                                     WorkerStatus.STARTING,
                                     WorkerStatus.RUNNING]).count() == 0:
             job.update_status(JobStatus.FINISHED, msg='Job finished')
@@ -81,7 +81,7 @@ def process_k8s_pod_event(self, event):
         worker.update_status(WorkerStatus.FINISHED)
         job = worker.avesjob
         if job.status in [JobStatus.STARTING, JobStatus.RUNNING] and \
-            job.k8s_worker.filter(k8s_status__in=[
+            job.aves_worker.filter(k8s_status__in=[
                                     WorkerStatus.STARTING,
                                     WorkerStatus.RUNNING]).count() == 0:
             job.update_status(JobStatus.FAILURE, msg=f'{pod_name} failed')
