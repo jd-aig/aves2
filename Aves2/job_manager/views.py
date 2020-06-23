@@ -59,9 +59,9 @@ class AvesWorkerViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewse
     @action(detail=True, methods=['get'])
     def worker_info(self, request, pk):
         worker = self.get_object()
-        rt, err_msg = k8s_client.get_pod_status(worker.worker_name, worker.namespace)
+        rt, err_msg = worker.get_worker_info()
         if not err_msg:
-            data = rt.to_str()
+            data = rt
             return HttpResponse(data, content_type="text/plain")
         else:
             data = {'error_msg': err_msg}

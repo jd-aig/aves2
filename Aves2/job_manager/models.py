@@ -3,6 +3,7 @@ import os
 import io
 import copy
 import time
+import json
 import logging
 import requests
 from collections import defaultdict
@@ -14,9 +15,13 @@ from django.contrib.auth.models import User
 from rest_framework.authtoken.models import Token
 
 from .utils.work_builder.base_maker import BaseMaker
-from kubernetes_client.k8s_objects import make_pod, make_configmap
-from kubernetes_client.client import k8s_client
 
+if settings.ENABLE_K8S:
+    from kubernetes_client.k8s_objects import make_pod, make_configmap
+    from kubernetes_client.client import k8s_client
+else:
+    from docker_client.docker_objects import make_config_datas, make_service
+    from docker_client.client import doc_client
 
 logger = logging.getLogger('aves2')
 
@@ -75,7 +80,7 @@ class AvesJob(models.Model):
     distribute_type = models.CharField(max_length=64, blank=True, null=True, choices=DISTRIBUTE_TYPES)
     debug = models.BooleanField(blank=True, null=False, default=True)
     image = models.CharField(max_length=512, blank=False, null=False)
-    package_uri = models.CharField(max_length=512, blank=True, null=False, default='')  # 是什么？
+    package_uri = models.CharField(max_length=512, blank=True, null=False, default='')
     resource_spec = JSONField(blank=False, default=json_field_default)
     storage_mode = models.CharField(max_length=32, blank=False, null=False, default='OSSFile')
     storage_config = JSONField(blank=True, null=False, default=json_field_default)
@@ -308,7 +313,7 @@ class AvesWorker(models.Model):
     create_time = models.DateTimeField(auto_now_add=True)
     update_time = models.DateTimeField(auto_now=True)
 
-    def start(self):
+    def _kube_start(self):
         """ Start aves worker pod
 
         :return: result, err_msg
@@ -347,7 +352,47 @@ class AvesWorker(models.Model):
             self.save()
         return rt, err
 
-    def stop(self):
+    def _swarm_start(self):
+        try:
+            m = BaseMaker(self.avesjob, self)
+            config_datas = make_config_datas(*m.gen_confdata_aves_scripts())
+            configs, err = doc_client.create_multiple_configs(config_datas)
+
+            svc_args, svc_kwargs = \
+                    make_service(
+                        name=self.worker_name,
+                        cmd=m.gen_command(),
+                        cmd_args=m.gen_args(),
+                        image=m.gen_image(),
+                        env=m.gen_envs(),
+                        labels=m.gen_pod_labels(),
+                        port_list=[],
+                        configs=configs,
+                        volumes=m.gen_volumes(),
+                        volume_mounts=m.gen_volume_mounts(),
+                        cpu_limit=self.cpu_request,
+                        cpu_guarantee=self.cpu_limit,
+                        mem_limit='{mem}Gi'.format(mem=self.mem_request),
+                        mem_guarantee='{mem}Gi'.format(mem=self.mem_limit),
+                        gpu_limit=self.gpu_request,
+                        gpu_guarantee=self.gpu_request,
+                    )
+            docker_svc, err = doc_client.create_service(svc_args, svc_kwargs)
+        except Exception:
+            logger.error('{0}: Fail to start. unhandled exception'.format(self), exc_info=True)
+            return None, 'Fail to start worker {}'.format(self.worker_name)
+        if docker_svc:
+            self.k8s_status = WorkerStatus.STARTING
+            self.save()
+        return docker_svc, err
+
+    def start(self):
+        if settings.ENABLE_K8S:
+            return self._kube_start()
+        else:
+            return self._swarm_start()
+
+    def _kube_stop(self):
         """ Stop aves worker pod
 
         :return: result, err_msg
@@ -360,6 +405,23 @@ class AvesWorker(models.Model):
         st2, msg2 = k8s_client.delete_namespaced_configmap(configmap.metadata.name, self.namespace)
         msg = None if not(msg1 or msg2) else '{0}\n{1}'.format(msg1, msg2)
         return st1 and st2, msg
+
+    def _docker_stop(self):
+        # TODO: rm service and config in celery task
+        logger.info('delete job service: {0}'.format(self))
+        m = BaseMaker(self.avesjob, self)
+        config_datas = make_config_datas(*m.gen_confdata_aves_scripts())
+        configmap_name, _ = m.gen_confdata_aves_scripts()
+        st2, msg2 = doc_client.delete_service(self.worker_name)
+        st1, msg1 = doc_client.delete_configs(configmap_name)
+        msg = None if not(msg1 or msg2) else '{0}\n{1}'.format(msg1, msg2)
+        return st1 and st2, msg
+
+    def stop(self):
+        if settings.ENABLE_K8S:
+            return self._kube_stop()
+        else:
+            return self._docker_stop()
 
     @staticmethod
     def _extract_timestamp(log_line):
@@ -376,7 +438,7 @@ class AvesWorker(models.Model):
         seconds = time.mktime(time.strptime(datetime_str, "%Y-%m-%d %H:%M:%S"))
         return seconds
 
-    def get_worker_log(self, since_seconds=None, follow=False, tail_lines=None):
+    def _kube_get_worker_log(self, since_seconds=None, follow=False, tail_lines=None):
         result, err = k8s_client.get_pod_log(
                             self.worker_name,
                             self.namespace,
@@ -384,6 +446,38 @@ class AvesWorker(models.Model):
                             follow=follow,
                             tail_lines=tail_lines)
         return result if not err else err
+
+    def _docker_get_worker_log(self, since_seconds=None, follow=False, tail_lines=None):
+        result, err = doc_client.get_container_log(
+                        self.worker_name,
+                        since_seconds=since_seconds,
+                        tail_lines=tail_lines)
+        return result if not err else err
+
+    def get_worker_log(self, since_seconds=None, follow=False, tail_lines=None):
+        if settings.ENABLE_K8S:
+            return self._kube_get_worker_log(
+                            since_seconds=since_seconds,
+                            follow=follow,
+                            tail_lines=tail_lines)
+        else:
+            return self._docker_get_worker_log(
+                            since_seconds=since_seconds,
+                            tail_lines=tail_lines)
+
+    def _k8s_get_worker_info(self):
+        rt, err_msg = k8s_client.get_pod_status(self.worker_name, self.namespace)
+        return rt.to_str(), err_msg
+
+    def _docker_get_worker_info(self):
+        rt, err_msg = doc_client.get_container_status(self.worker_name)
+        return json.dumps(rt, indent=2), err_msg
+
+    def get_worker_info(self):
+        if settings.ENABLE_K8S:
+            return self._k8s_get_worker_info()
+        else:
+            return self._docker_get_worker_info()
 
     def get_container_log_info(self):
         """ generate two url for PAI server to get container log infomation

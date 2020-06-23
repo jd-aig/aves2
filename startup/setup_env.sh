@@ -11,9 +11,11 @@ export DJANGO_APP_DB_USER=""
 export DJANGO_APP_DB_PASS=""
 
 # Aves
+export AVES2_CLUSTER="swarm"
+export DOCKER_URL="unix://var/run/docker.sock"
 export AVES_URL_PREFIX="aves2"
-export AVES_API_HOST=""
-export AVES_LOGIN_URL=""
+export AVES_API_HOST="http://neuf-aves2.neuf-system:8080/aves2/"
+export AVES_LOGIN_URL="/aves2/accounts/login/"
 export AVES_RUN_AS_ROOT="yes"  # yes/no
 export AVES_JOB_LABEL="aves-training"
 

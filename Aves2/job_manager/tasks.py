@@ -33,6 +33,11 @@ def periodic_add(x, y):
     return x + y
 
 
+@celery.task
+def add(x, y):
+    return x+y
+
+
 @shared_task(name='start_avesjob', bind=True)
 def start_avesjob(self, job_id):
     avesjob = AvesJob.objects.get(id=job_id)
