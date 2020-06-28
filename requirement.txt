@@ -13,3 +13,4 @@ jinja2
 escapism
 pika
 gevent
+docker==4.2.1

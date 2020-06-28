@@ -8,7 +8,7 @@ from django.contrib.auth import authenticate, login
 from django.core.paginator import Paginator
 
 from rest_framework.authtoken.models import Token
-from job_manager.models import AvesJob, K8SWorker
+from job_manager.models import AvesJob, AvesWorker
 
 
 logger = logging.getLogger('aves2')

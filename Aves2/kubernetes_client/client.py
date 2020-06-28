@@ -1,6 +1,7 @@
 import codecs
 import json
 import logging
+from django.conf import settings
 from kubernetes import client, config, watch
 from kubernetes.client.rest import ApiException
 from inspect import isfunction
@@ -238,4 +239,7 @@ class K8SClient(object):
         logger.info("delete resource_quota name: {0}".format(name))
         return result, None
 
-k8s_client = K8SClient()
+if settings.ENABLE_K8S:
+    k8s_client = K8SClient()
+else:
+    k8s_client = None

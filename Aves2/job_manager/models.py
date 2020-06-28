@@ -3,6 +3,7 @@ import os
 import io
 import copy
 import time
+import json
 import logging
 import requests
 from collections import defaultdict
@@ -14,9 +15,13 @@ from django.contrib.auth.models import User
 from rest_framework.authtoken.models import Token
 
 from .utils.work_builder.base_maker import BaseMaker
-from kubernetes_client.k8s_objects import make_pod, make_configmap
-from kubernetes_client.client import k8s_client
 
+if settings.ENABLE_K8S:
+    from kubernetes_client.k8s_objects import make_pod, make_configmap
+    from kubernetes_client.client import k8s_client
+else:
+    from docker_client.docker_objects import make_config_datas, make_service
+    from docker_client.client import doc_client
 
 logger = logging.getLogger('aves2')
 
@@ -75,7 +80,7 @@ class AvesJob(models.Model):
     distribute_type = models.CharField(max_length=64, blank=True, null=True, choices=DISTRIBUTE_TYPES)
     debug = models.BooleanField(blank=True, null=False, default=True)
     image = models.CharField(max_length=512, blank=False, null=False)
-    package_uri = models.CharField(max_length=512, blank=True, null=False, default='')  # 是什么？
+    package_uri = models.CharField(max_length=512, blank=True, null=False, default='')
     resource_spec = JSONField(blank=False, default=json_field_default)
     storage_mode = models.CharField(max_length=32, blank=False, null=False, default='OSSFile')
     storage_config = JSONField(blank=True, null=False, default=json_field_default)
@@ -117,21 +122,21 @@ class AvesJob(models.Model):
 
     @property
     def all_workers(self):
-        return self.k8s_worker.all()
+        return self.aves_worker.all()
 
     @property
     def merged_id(self):
         return 'aves{0}-{1}-{2}-{3}'.format(self.id, self.username, self.namespace, self.job_id)
 
-    def _make_k8s_worker_name(self, role, role_index):
+    def _make_aves_worker_name(self, role, role_index):
         return '{0}-{1}-{2}'.format(self.merged_id, role, role_index)
 
-    def make_k8s_workers(self):
-        if self.k8s_worker.count() > 0:
-            logger.error('{0}: Fail to make k8s workers, already exist'.format(self))
+    def make_aves_workers(self):
+        if self.aves_worker.count() > 0:
+            logger.error('{0}: Fail to make aves workers, already exist'.format(self))
             raise Exception('Not Allowed')
 
-        k8s_workers = []
+        aves_workers = []
         no_master_role = True if 'master' not in self.resource_spec.keys() else False
         no_ps_role = True if 'ps' not in self.resource_spec.keys() else False
         for role, spec in self.resource_spec.items():
@@ -144,12 +149,12 @@ class AvesJob(models.Model):
                     is_main_node = True
                 else:
                     is_main_node = False
-                worker = K8SWorker(
+                worker = AvesWorker(
                     username=self.username,
                     namespace=self.namespace,
                     engine=self.engine,
                     avesjob=self,
-                    worker_name=self._make_k8s_worker_name(role, role_index),
+                    worker_name=self._make_aves_worker_name(role, role_index),
                     is_main_node=is_main_node,
                     avesrole=role,
                     role_index=role_index,
@@ -161,8 +166,8 @@ class AvesJob(models.Model):
                     entrypoint=spec.get('entry_point'),
                     args=spec.get('args', [])
                 )
-                k8s_workers.append(worker)
-        K8SWorker.objects.bulk_create(k8s_workers)
+                aves_workers.append(worker)
+        AvesWorker.objects.bulk_create(aves_workers)
 
     def update_status(self, status, msg=''):
         from .tasks import report_avesjob_status
@@ -178,26 +183,26 @@ class AvesJob(models.Model):
 
         :return: (True/False, err_msg)
         """
-        if self.k8s_worker.count() == 0:
+        if self.aves_worker.count() == 0:
             try:
-                self.make_k8s_workers()
+                self.make_aves_workers()
             except Exception as e:
                 err = 'Fail to create aves workers'
                 logger.error('fail to create aves workers', exc_info=True)
                 return False, err
 
-        for worker_i in self.k8s_worker.all():
+        for worker_i in self.aves_worker.all():
             pod, err = worker_i.start()
             if err:
                 return False, err
         return True, None
 
     def cancel(self):
-        """ Cancel avesjob and del related k8s resources
+        """ Cancel avesjob and del related k8s/docker resources
 
         :return: (True/False, err_msg)
         """
-        for worker_i in self.k8s_worker.all():
+        for worker_i in self.aves_worker.all():
             rt = worker_i.stop()
             if not rt:
                 return False, '{0}: Fail to stop work {1}'.format(self, worker_i)
@@ -205,7 +210,7 @@ class AvesJob(models.Model):
 
     def clean_work(self, force=False):
         logger.info('{0}: clean job. job workers will be cleaned'.format(self))
-        for worker_i in self.k8s_worker.all():
+        for worker_i in self.aves_worker.all():
             if self.debug == True and worker_i.is_main_node and force == False:
                 continue
             worker_i.stop()
@@ -219,7 +224,7 @@ class AvesJob(models.Model):
             return {}
 
     def _get_dist_envs_for_tfps(self):
-        all_workers = self.k8s_worker.all()
+        all_workers = self.aves_worker.all()
         ps = [str(i.id) for i in all_workers if i.avesrole == 'ps']
         workers = [str(i.id) for i in all_workers if i.avesrole == 'worker']
 
@@ -230,7 +235,7 @@ class AvesJob(models.Model):
         return {'AVES_TF_PS_HOSTS': ','.join(ps_ips), 'AVES_TF_WORKER_HOSTS': ','.join(worker_ips)}
 
     def _get_dist_envs_for_horovod(self):
-        all_workers = self.k8s_worker.all()
+        all_workers = self.aves_worker.all()
         np = 0
         hosts = []
         pods, msg = k8s_client.get_namespaced_pod_list(self.namespace, selector={'jobId': self.job_id})
@@ -271,7 +276,7 @@ class WorkerStatus:
     CANCELED = 'CANCELED'
 
 
-class K8SWorker(models.Model):
+class AvesWorker(models.Model):
     """
     """
     STATUS_MAP = (
@@ -288,7 +293,7 @@ class K8SWorker(models.Model):
     username = models.CharField(max_length=128, blank=False, null=False, default='')
     namespace = models.CharField(max_length=32, blank=False, null=False)
     engine = models.CharField(max_length=64, blank=False, null=False)
-    avesjob = models.ForeignKey('AvesJob', on_delete=models.CASCADE, related_name='k8s_worker', blank=False, null=False)
+    avesjob = models.ForeignKey('AvesJob', on_delete=models.CASCADE, related_name='aves_worker', blank=False, null=False)
     # worker_name = <avesjob.merged_id>-<avesrole>-<role_index>
     worker_name = models.CharField(max_length=256, blank=False, null=False, default='')
     is_main_node = models.BooleanField(blank=True, null=False, default=True)
@@ -310,8 +315,8 @@ class K8SWorker(models.Model):
     create_time = models.DateTimeField(auto_now_add=True)
     update_time = models.DateTimeField(auto_now=True)
 
-    def start(self):
-        """ Start k8s worker pod
+    def _kube_start(self):
+        """ Start aves worker pod
 
         :return: result, err_msg
         """
@@ -349,8 +354,48 @@ class K8SWorker(models.Model):
             self.save()
         return rt, err
 
-    def stop(self):
-        """ Stop k8s worker pod
+    def _swarm_start(self):
+        try:
+            m = BaseMaker(self.avesjob, self)
+            config_datas = make_config_datas(*m.gen_confdata_aves_scripts())
+            configs, err = doc_client.create_multiple_configs(config_datas)
+
+            svc_args, svc_kwargs = \
+                    make_service(
+                        name=self.worker_name,
+                        cmd=m.gen_command(),
+                        cmd_args=m.gen_args(),
+                        image=m.gen_image(),
+                        env=m.gen_envs(),
+                        labels=m.gen_pod_labels(),
+                        port_list=[],
+                        configs=configs,
+                        volumes=m.gen_volumes(),
+                        volume_mounts=m.gen_volume_mounts(),
+                        cpu_limit=self.cpu_request,
+                        cpu_guarantee=self.cpu_limit,
+                        mem_limit='{mem}Gi'.format(mem=self.mem_request),
+                        mem_guarantee='{mem}Gi'.format(mem=self.mem_limit),
+                        gpu_limit=self.gpu_request,
+                        gpu_guarantee=self.gpu_request,
+                    )
+            docker_svc, err = doc_client.create_service(svc_args, svc_kwargs)
+        except Exception:
+            logger.error('{0}: Fail to start. unhandled exception'.format(self), exc_info=True)
+            return None, 'Fail to start worker {}'.format(self.worker_name)
+        if docker_svc:
+            self.k8s_status = WorkerStatus.STARTING
+            self.save()
+        return docker_svc, err
+
+    def start(self):
+        if settings.ENABLE_K8S:
+            return self._kube_start()
+        else:
+            return self._swarm_start()
+
+    def _kube_stop(self):
+        """ Stop aves worker pod
 
         :return: result, err_msg
         """
@@ -362,6 +407,23 @@ class K8SWorker(models.Model):
         st2, msg2 = k8s_client.delete_namespaced_configmap(configmap.metadata.name, self.namespace)
         msg = None if not(msg1 or msg2) else '{0}\n{1}'.format(msg1, msg2)
         return st1 and st2, msg
+
+    def _docker_stop(self):
+        # TODO: rm service and config in celery task
+        logger.info('delete job service: {0}'.format(self))
+        m = BaseMaker(self.avesjob, self)
+        config_datas = make_config_datas(*m.gen_confdata_aves_scripts())
+        configmap_name, _ = m.gen_confdata_aves_scripts()
+        st2, msg2 = doc_client.delete_service(self.worker_name)
+        st1, msg1 = doc_client.delete_configs(configmap_name)
+        msg = None if not(msg1 or msg2) else '{0}\n{1}'.format(msg1, msg2)
+        return st1 and st2, msg
+
+    def stop(self):
+        if settings.ENABLE_K8S:
+            return self._kube_stop()
+        else:
+            return self._docker_stop()
 
     @staticmethod
     def _extract_timestamp(log_line):
@@ -378,7 +440,7 @@ class K8SWorker(models.Model):
         seconds = time.mktime(time.strptime(datetime_str, "%Y-%m-%d %H:%M:%S"))
         return seconds
 
-    def get_worker_log(self, since_seconds=None, follow=False, tail_lines=None):
+    def _kube_get_worker_log(self, since_seconds=None, follow=False, tail_lines=None):
         result, err = k8s_client.get_pod_log(
                             self.worker_name,
                             self.namespace,
@@ -386,6 +448,38 @@ class K8SWorker(models.Model):
                             follow=follow,
                             tail_lines=tail_lines)
         return result if not err else err
+
+    def _docker_get_worker_log(self, since_seconds=None, follow=False, tail_lines=None):
+        result, err = doc_client.get_container_log(
+                        self.worker_name,
+                        since_seconds=since_seconds,
+                        tail_lines=tail_lines)
+        return result if not err else err
+
+    def get_worker_log(self, since_seconds=None, follow=False, tail_lines=None):
+        if settings.ENABLE_K8S:
+            return self._kube_get_worker_log(
+                            since_seconds=since_seconds,
+                            follow=follow,
+                            tail_lines=tail_lines)
+        else:
+            return self._docker_get_worker_log(
+                            since_seconds=since_seconds,
+                            tail_lines=tail_lines)
+
+    def _k8s_get_worker_info(self):
+        rt, err_msg = k8s_client.get_pod_status(self.worker_name, self.namespace)
+        return rt.to_str(), err_msg
+
+    def _docker_get_worker_info(self):
+        rt, err_msg = doc_client.get_container_status(self.worker_name)
+        return json.dumps(rt, indent=2), err_msg
+
+    def get_worker_info(self):
+        if settings.ENABLE_K8S:
+            return self._k8s_get_worker_info()
+        else:
+            return self._docker_get_worker_info()
 
     def get_container_log_info(self):
         """ generate two url for PAI server to get container log infomation
@@ -420,4 +514,4 @@ class K8SWorker(models.Model):
         return self.worker_name
 
     class Meta:
-        db_table = 'k8sworker'
+        db_table = 'avesworker'

@@ -1,7 +1,7 @@
 from django.utils import timezone
 from rest_framework import serializers
 
-from .models import AvesJob, K8SWorker
+from .models import AvesJob, AvesWorker
 
 
 class AvesJobSerializer(serializers.ModelSerializer):
@@ -15,10 +15,10 @@ class AvesJobSerializer(serializers.ModelSerializer):
         return obj.job_name
 
 
-class K8SWorkerSerializer(serializers.ModelSerializer):
+class AvesWorkerSerializer(serializers.ModelSerializer):
 
     class Meta:
-        model = K8SWorker
+        model = AvesWorker
         fields = '__all__'
 
 
@@ -29,7 +29,7 @@ class WorkerLogSerializer(serializers.ModelSerializer):
     pod_name = serializers.SerializerMethodField()
 
     class Meta:
-        model = K8SWorker
+        model = AvesWorker
         fields = ('pod_name', 'readlog_url', 'loginfo_url', 'roleId')
 
     def get_pod_name(self, obj):
