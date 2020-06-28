@@ -21,7 +21,6 @@ from django.conf.urls import url
 from django.views import static
 from django.views.generic.base import RedirectView
 from django.contrib.auth import views as auth_views
-from aves2_jd_sso import views as auth_views
 
 
 urlpatterns = [
