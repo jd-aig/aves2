@@ -15,8 +15,8 @@ from rest_framework import status
 from rest_framework.exceptions import APIException
 from rest_framework.decorators import api_view, list_route, detail_route, action
 
-from job_manager.models import AvesJob, K8SWorker, User
-from job_manager.serializer import AvesJobSerializer, K8SWorkerSerializer, WorkerLogSerializer
+from job_manager.models import AvesJob, AvesWorker
+from job_manager.serializer import AvesJobSerializer, AvesWorkerSerializer, WorkerLogSerializer
 from job_manager import tasks
 from job_manager.aves2_schemas import validate_job, trans_job_data
 
@@ -35,15 +35,15 @@ def obtain_post_data(request):
 
 
 class AvesWorkerViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
-    """ A ViewSete for AvesWorker(K8SWorker)
+    """ A ViewSete for AvesWorker
     """
-    serializer_class = K8SWorkerSerializer
+    serializer_class = AvesWorkerSerializer
 
     def get_queryset(self):
         if self.request.user.is_active and self.request.user.is_superuser:
-            return K8SWorker.objects.all()
+            return AvesWorker.objects.all()
         else:
-            return K8SWorker.objects.all().filter(username=self.request.user.username)
+            return AvesWorker.objects.all().filter(username=self.request.user.username)
 
     @action(detail=True, methods=['get'])
     def logs(self, request, pk):
@@ -59,9 +59,9 @@ class AvesWorkerViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewse
     @action(detail=True, methods=['get'])
     def worker_info(self, request, pk):
         worker = self.get_object()
-        rt, err_msg = k8s_client.get_pod_status(worker.worker_name, worker.namespace)
+        rt, err_msg = worker.get_worker_info()
         if not err_msg:
-            data = rt.to_str()
+            data = rt
             return HttpResponse(data, content_type="text/plain")
         else:
             data = {'error_msg': err_msg}
@@ -148,7 +148,7 @@ class AvesJobViewSet(viewsets.ModelViewSet):
             logger.error('Fail to get_namespaced_pod_list: namespace {0}, selector {1}. msg: {2}'.format(namespace, selector, msg))
             raise APIException(detail='Fail to get job info', code=500)
 
-        if not data or not len(data) == avesjob.k8s_worker.count():
+        if not data or not len(data) == avesjob.aves_worker.count():
             raise APIException(detail='workers are not ready', code=400)
 
         for pod in data:
@@ -222,7 +222,7 @@ class AvesJobViewSet(viewsets.ModelViewSet):
                 yield '%s\r\n' % line
 
         job = self.get_object()
-        worker = job.k8s_worker.filter(is_main_node=True)[0]
+        worker = job.aves_worker.filter(is_main_node=True)[0]
         # TODO: support query params '?tail_lines=100'
         rt = worker.get_worker_log(tail_lines=2000)
         return StreamingHttpResponse(gen_log(rt), content_type="text/plain")
@@ -310,7 +310,7 @@ class AvesJobViewSet(viewsets.ModelViewSet):
             rt = {'success': False, 'errorMessage': msg}
             return Response(rt)
 
-        worker_set = K8SWorker.objects.filter(avesjob__job_id=job_id)
+        worker_set = AvesWorker.objects.filter(avesjob__job_id=job_id)
         if role_id is not None:
             worker_set = worker_set.filter(role_index=roleId)
         serializer = WorkerLogSerializer(worker_set, many=True)
