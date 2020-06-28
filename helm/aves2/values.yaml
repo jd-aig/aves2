@@ -6,7 +6,7 @@ replicaCount: 1
 
 image:
   repository: <replace with your repository url>
-  tag: stable
+  tag: <image tag>
   pullPolicy: IfNotPresent
 
 nameOverride: ""
@@ -37,6 +37,14 @@ celery:
   brokerUrl: ""
   defaultQueue: "celery"
   concurrency: 10
+
+sso:
+  loginUrl: ""
+  logoutUrl: ""
+  cookie: ""
+  tickeyVerifyUrl: ""
+  authUrl: ""
+  authToken: ""
 
 mysql:
   host: ""
