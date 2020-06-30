@@ -240,8 +240,8 @@ class AvesJob(models.Model):
             worker_ips = ['{0}:2222'.format(i.status.pod_ip) for i in pods if i.metadata.labels.get('workerId') in workers]
         else:
             containers, msg = doc_client.list_containers(labels={'avesJobId': self.id})
-            ps_ips = ['{0}:2222'.format(i.attrs['NetworkSettings']['Networks'][settings.AVES2_TRAIN_NETWORK]['IPAMConfig']['IPv4Address']) for i in pods if i.labels.get('workerId') in ps]
-            worker_ips = ['{0}:2222'.format(i.attrs['NetworkSettings']['Networks'][settings.AVES2_TRAIN_NETWORK]['IPAMConfig']['IPv4Address']) for i in pods if i.labels.get('workerId') in workers]
+            ps_ips = ['{0}:2222'.format(i.attrs['NetworkSettings']['Networks'][settings.AVES2_TRAIN_NETWORK]['IPAMConfig']['IPv4Address']) for i in containers if i.labels.get('workerId') in ps]
+            worker_ips = ['{0}:2222'.format(i.attrs['NetworkSettings']['Networks'][settings.AVES2_TRAIN_NETWORK]['IPAMConfig']['IPv4Address']) for i in containers if i.labels.get('workerId') in workers]
 
         return {'AVES_TF_PS_HOSTS': ','.join(ps_ips), 'AVES_TF_WORKER_HOSTS': ','.join(worker_ips)}
 
@@ -251,6 +251,16 @@ class AvesJob(models.Model):
             AVES_MPI_NP: Total number of processes to run
             AVES_MPI_HOST_LIST: <Worker0 IP>:<number of process>, <Worker1 IP>:<number of process>
             AVES_MPI_SSH_PORT: 22
+            # https://docs.oracle.com/cd/E19708-01/821-1319-10/mca-params.html
+            # https://www.open-mpi.org/faq/?category=tcp
+            # https://docs.oracle.com/cd/E19356-01/820-3176-10/appb-mca.html
+            # https://www.open-mpi.org/faq/?category=tcp#tcp-selection
+            OMPI_MCA_btl_tcp_if_exclude:
+            OMPI_MCA_btl: tcp,self
+            OMPI_MCA_orte_base_help_aggregate: 0
+            OMPI_MCA_btl_base_verbose: 100
+            # https://blog.csdn.net/yanxiangtianji/article/details/55255318
+            MPICH_INTERFACE_HOSTNAME:
         """
         all_workers = self.aves_worker.all()
         np = 0
@@ -274,10 +284,14 @@ class AvesJob(models.Model):
                 ip = container.attrs['NetworkSettings']['Networks'][settings.AVES2_TRAIN_NETWORK]['IPAMConfig']['IPv4Address']
                 hosts.append('{}:{}'.format(ip, per_num))
         # TODO: support setting ssh port
+        # TODO: fix hardcode OMPI_MCA_btl_tcp_if_include
         d = {
                 'AVES_MPI_NP': np,
                 'AVES_MPI_HOST_LIST': ','.join(hosts),
-                'AVES_MPI_SSH_PORT': 22
+                'AVES_MPI_SSH_PORT': 22,
+                'OMPI_MCA_btl_tcp_if_exclude': 'eth1,lo',
+                'OMPI_MCA_orte_base_help_aggregate': 0,
+                'OMPI_MCA_btl_base_verbose': 100,
             }
         return d
 
