@@ -101,6 +101,13 @@ class DockerClient(object):
             return containers, None
         return 'Not found', None
 
+    @handle_api_exception
+    def list_containers(self, labels):
+        label_l = ['{0}={1}'.format(k, v) for k, v in labels.items()]
+        filters = {'lable': label_l}
+        containers = self.client.containers.list(all=True, filters=filters)
+        return containers, None
+
 if settings.ENABLE_K8S:
     doc_client = None
 else:
