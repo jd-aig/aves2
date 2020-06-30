@@ -21,6 +21,7 @@ from job_manager import tasks
 from job_manager.aves2_schemas import validate_job, trans_job_data
 
 from kubernetes_client.client import k8s_client
+from docker_client.client import doc_client
 
 logger = logging.getLogger('aves2')
 
@@ -143,17 +144,31 @@ class AvesJobViewSet(viewsets.ModelViewSet):
         namespace = avesjob.namespace
         selector = {'avesJobId': avesjob.id}
 
-        data, msg = k8s_client.get_namespaced_pod_list(namespace, selector=selector)
-        if not data:
-            logger.error('Fail to get_namespaced_pod_list: namespace {0}, selector {1}. msg: {2}'.format(namespace, selector, msg))
-            raise APIException(detail='Fail to get job info', code=500)
+        # TODO: make a better implementation
+        if settings.ENABLE_K8S:
+            data, msg = k8s_client.get_namespaced_pod_list(namespace, selector=selector)
+            if not data:
+                logger.error('Fail to get_namespaced_pod_list: namespace {0}, selector {1}. msg: {2}'.format(namespace, selector, msg))
+                raise APIException(detail='Fail to get job info', code=500)
 
-        if not data or not len(data) == avesjob.aves_worker.count():
-            raise APIException(detail='workers are not ready', code=400)
+            if not data or not len(data) == avesjob.aves_worker.count():
+                raise APIException(detail='workers are not ready', code=400)
 
-        for pod in data:
-            if not (hasattr(pod.status, 'phase') and pod.status.phase == 'Running'):
-                raise APIException(detail='worker {0} is not ready'.format(pod.metadata.name), code=400)
+            for pod in data:
+                if not (hasattr(pod.status, 'phase') and pod.status.phase == 'Running'):
+                    raise APIException(detail='worker {0} is not ready'.format(pod.metadata.name), code=400)
+        else:
+            data, msg = doc_client.list_containers(labels=selector)
+            if not data:
+                logger.error('Fail to list_containers: selector {0}. msg: {1}'.format(selector, msg))
+                raise APIException(detail='Fail to get job info', code=500)
+
+            if not data or not len(data) == avesjob.aves_worker.count():
+                raise APIException(detail='workers are not ready', code=400)
+
+            for container in data:
+                if container.status != 'running':
+                    raise APIException(detail='worker {0} is not ready'.format(container.labels.get('workerName')), code=400)
 
         envs = avesjob.get_dist_envs()
         return Response(envs)

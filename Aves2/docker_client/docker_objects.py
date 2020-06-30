@@ -20,6 +20,7 @@ def make_service(
     image_pull_secret=None,
     port_list=None,
     env=[],
+    networks=[],
     working_dir=None,
     configs=None,
     volumes=None,
@@ -106,5 +107,6 @@ def make_service(
     # kwargs['resources'] = resources
 
     kwargs['restart_policy'] = RestartPolicy()
-    kwargs['networks'] = ['neuf-system']
+    # TODO: replace hardcode network neuf-system
+    kwargs['networks'] = networks
     return args, kwargs

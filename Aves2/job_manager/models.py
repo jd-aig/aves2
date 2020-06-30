@@ -224,26 +224,55 @@ class AvesJob(models.Model):
             return {}
 
     def _get_dist_envs_for_tfps(self):
+        """
+        tensorflow-ps cluster envs:
+            AVES_TF_PS_HOSTS: <PS0 IP1> <PS1 IP> ...
+            AVES_TF_WORKER_HOSTS: <Worker0 IP> <Worker1 IP> <Worker2 IP> ...
+        """
         all_workers = self.aves_worker.all()
         ps = [str(i.id) for i in all_workers if i.avesrole == 'ps']
         workers = [str(i.id) for i in all_workers if i.avesrole == 'worker']
 
-        pods, msg = k8s_client.get_namespaced_pod_list(self.namespace, selector={'jobId': self.job_id})
-        ps_ips = ['{0}:2222'.format(i.status.pod_ip) for i in pods if i.metadata.labels.get('workerId') in ps]
-        worker_ips = ['{0}:2222'.format(i.status.pod_ip) for i in pods if i.metadata.labels.get('workerId') in workers]
+        # TODO: make a better implementation
+        if settings.ENABLE_K8S:
+            pods, msg = k8s_client.get_namespaced_pod_list(self.namespace, selector={'avesJobId': self.id})
+            ps_ips = ['{0}:2222'.format(i.status.pod_ip) for i in pods if i.metadata.labels.get('workerId') in ps]
+            worker_ips = ['{0}:2222'.format(i.status.pod_ip) for i in pods if i.metadata.labels.get('workerId') in workers]
+        else:
+            containers, msg = doc_client.list_containers(labels={'avesJobId': self.id})
+            ps_ips = ['{0}:2222'.format(i.attrs['NetworkSettings']['Networks'][settings.AVES2_TRAIN_NETWORK]['IPAMConfig']['IPv4Address']) for i in pods if i.labels.get('workerId') in ps]
+            worker_ips = ['{0}:2222'.format(i.attrs['NetworkSettings']['Networks'][settings.AVES2_TRAIN_NETWORK]['IPAMConfig']['IPv4Address']) for i in pods if i.labels.get('workerId') in workers]
 
         return {'AVES_TF_PS_HOSTS': ','.join(ps_ips), 'AVES_TF_WORKER_HOSTS': ','.join(worker_ips)}
 
     def _get_dist_envs_for_horovod(self):
+        """
+        Horovod cluster envs:
+            AVES_MPI_NP: Total number of processes to run
+            AVES_MPI_HOST_LIST: <Worker0 IP>:<number of process>, <Worker1 IP>:<number of process>
+            AVES_MPI_SSH_PORT: 22
+        """
         all_workers = self.aves_worker.all()
         np = 0
         hosts = []
-        pods, msg = k8s_client.get_namespaced_pod_list(self.namespace, selector={'jobId': self.job_id})
-        pods_map = {int(i.metadata.labels.get('workerId')): i for i in pods}
-        for w in all_workers:
-            pod = pods_map[w.id]
-            np += w.gpu_request
-            hosts.append('{}:{}'.format(pod.status.pod_ip, w.gpu_request))
+        # TODO: make a better implementation
+        if settings.ENABLE_K8S:
+            pods, msg = k8s_client.get_namespaced_pod_list(self.namespace, selector={'avesJobId': self.id})
+            pods_map = {int(i.metadata.labels.get('workerId')): i for i in pods}
+            for w in all_workers:
+                per_num = w.gpu_request if w.gpu_request else 1
+                pod = pods_map[w.id]
+                np += per_num
+                hosts.append('{}:{}'.format(pod.status.pod_ip, per_num))
+        else:
+            containers, msg = doc_client.list_containers(labels={'avesJobId': self.id})
+            containers_map = {int(i.labels.get('workerId')): i for i in containers}
+            for w in all_workers:
+                per_num = w.gpu_request if w.gpu_request else 1
+                container = containers_map[w.id]
+                np += per_num
+                ip = container.attrs['NetworkSettings']['Networks'][settings.AVES2_TRAIN_NETWORK]['IPAMConfig']['IPv4Address']
+                hosts.append('{}:{}'.format(ip, per_num))
         # TODO: support setting ssh port
         d = {
                 'AVES_MPI_NP': np,
@@ -367,6 +396,7 @@ class AvesWorker(models.Model):
                         cmd_args=m.gen_args(),
                         image=m.gen_image(),
                         env=m.gen_envs(),
+                        networks=[settings.AVES2_TRAIN_NETWORK],
                         labels=m.gen_pod_labels(),
                         port_list=[],
                         configs=configs,
