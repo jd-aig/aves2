@@ -12,6 +12,10 @@ export DJANGO_APP_DB_PASS=""
 
 # Aves
 export AVES2_CLUSTER="swarm"
+# AVES2_TAIN_NETWORK
+# used in swarm cluster only,
+# all trainning containers will be attached to this network
+export AVES2_TRAIN_NETWORK="neuf-system"
 export DOCKER_URL="unix://var/run/docker.sock"
 export AVES_URL_PREFIX="aves2"
 export AVES_API_HOST="http://neuf-aves2.neuf-system:8080/aves2/"
