@@ -29,6 +29,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('center/', include('aves2_center.urls')),
     path('api/', include('job_manager.urls')),
+    path('', RedirectView.as_view(url='center/'))
 ]
 
 if not settings.DEBUG:
