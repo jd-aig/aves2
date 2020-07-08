@@ -106,7 +106,7 @@ class DockerClient(object):
                 continue
             containers = service.tasks()
             return containers, None
-        return 'Not found', None
+        return [], 'Not found'
 
     @handle_api_exception
     def list_containers(self, labels):
