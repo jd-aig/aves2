@@ -32,6 +32,9 @@ class DockerClient(object):
                 except Exception:
                     err_msg = e.response.text
                 return None, err_msg
+            except Exception as e:
+                logger.error('Calling {0} got exception'.format(fn), exc_info=True)
+                return None, str(e)
         return fn_wrap
 
     @handle_api_exception
