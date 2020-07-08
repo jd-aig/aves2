@@ -30,8 +30,9 @@ class Command(BaseCommand):
         signal.signal(signal.SIGINT, quit_handler)
         signal.signal(signal.SIGTERM, quit_handler)
 
+        if settings.AVES2_CLUSTER != "swarm":
+            raise Exception('swarm cluster is required')
 
-        label = f'app={settings.AVES_JOB_LABEL}'
         while True:
             for job in AvesJob.objects.filter(status__in=[JobStatus.STARTING]):
                 if int((timezone.now() - job.update_time).total_seconds()) / 60 > 5:
@@ -51,3 +52,4 @@ class Command(BaseCommand):
                             job.update_status(JobStatus.FAILURE, msg='workers are disappeared')
                             job.clean_work(force=True)
                             break
+            time.sleep(60*5)

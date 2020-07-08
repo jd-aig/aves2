@@ -28,6 +28,9 @@ class Command(BaseCommand):
         signal.signal(signal.SIGINT, quit_handler)
         signal.signal(signal.SIGTERM, quit_handler)
 
+        if settings.AVES2_CLUSTER != "k8s":
+            raise Exception('k8s cluster is required')
+
         api = client.CoreV1Api()
         watcher = watch.Watch()
         label = f'app={settings.AVES_JOB_LABEL}'
