@@ -32,24 +32,27 @@ class Command(BaseCommand):
         watcher = watch.Watch()
         label = f'app={settings.AVES_JOB_LABEL}'
         while True:
-            for event in watcher.stream(
-                            api.list_pod_for_all_namespaces,
-                            label_selector=label,
-                            pretty=True, watch=True):
-                event_type = event.get('type')
-                pod = event['object']
-                pod_name = pod.metadata.name
-                phase = pod.status.phase
+            try:
+                for event in watcher.stream(
+                                api.list_pod_for_all_namespaces,
+                                label_selector=label,
+                                pretty=True, watch=True):
+                    event_type = event.get('type')
+                    pod = event['object']
+                    pod_name = pod.metadata.name
+                    phase = pod.status.phase
 
-                logger.info(f"receive pod event type:{event_type} pod_name:{pod_name} phase:{phase}")
-                if event['object'].status.conditions:
-                    event['object'].status.conditions = sorted(event['object'].status.conditions, key=lambda x: x.last_transition_time)
+                    logger.info(f"receive pod event type:{event_type} pod_name:{pod_name} phase:{phase}")
+                    if event['object'].status.conditions:
+                        event['object'].status.conditions = sorted(event['object'].status.conditions, key=lambda x: x.last_transition_time)
 
-                if event_type not in ['MODIFIED', 'ADDED']:
-                    continue
-                try:
-                    tasks.process_k8s_pod_event.apply_async(
-                            (event,),
-                            serializer='pickle')
-                except Exception as e:
-                    self.stdout.write(str(e))
+                    if event_type not in ['MODIFIED', 'ADDED']:
+                        continue
+                    try:
+                        tasks.process_k8s_pod_event.apply_async(
+                                (event,),
+                                serializer='pickle')
+                    except Exception as e:
+                        self.stdout.write(str(e))
+            except Exception:
+                pass
