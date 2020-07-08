@@ -67,6 +67,13 @@ class DockerClient(object):
         service = self.client.services.create(*svc_args, **svc_kwargs)
         service.reload()
         logger.debug("create docker service: %s" % service)
+        # check service.taskts
+        # In aves2, service contains single trainning worker container
+        tasks = service.tasks()
+        if tasks:
+            if tasks[0].get('Status', {}).get('State', '') == 'rejected':
+                err = tasks[0].get('Status', {}).get('Err', '')
+                raise Exception(err)
         return service, None
 
     @handle_api_exception
