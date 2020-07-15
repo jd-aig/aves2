@@ -63,6 +63,6 @@ RUN pip3 install   mysqlclient==1.4.2
 
 # Copy aves2 to /src
 RUN mkdir /src/
-COPY . /src/aves2
+COPY aves2 /src/aves2
 RUN cd /src/aves2 && \
     pip3 install -r requirement.txt
