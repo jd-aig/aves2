@@ -61,8 +61,8 @@ RUN pip3 install   mysqlclient==1.4.2
 #     gunicorn==20.0.4 \
 #     jsonschema==3.0.2
 
-# Copy aves2 to /src
+# clone aves2 to /src
 RUN mkdir /src/
-COPY aves2 /src/aves2
+RUN git clone https://github.com/jd-aig/aves2 /src/aves2
 RUN cd /src/aves2 && \
     pip3 install -r requirement.txt
