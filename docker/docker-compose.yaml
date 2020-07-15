@@ -8,6 +8,7 @@ services:
       - 3306
     environment:
       MYSQL_ALLOW_EMPTY_PASSWORD: "false"
+      MYSQL_DATABASE: "aves2"
       MYSQL_ROOT_PASSWORD: "root"
       MYSQL_USER: "aves2"
       MYSQL_PASSWORD: "helloaves2"
@@ -28,12 +29,18 @@ services:
     container_name: aves2
     image: ai-image.jd.com/neuhub-pai/aves2:jd-dev-e72a87
     restart: always
-    command: sleep 9999d
+    command: bash /src/aves2/startup/start_django.sh /src/aves2/startup/setup_env-demo.sh /src/aves2/startup/gunicorn_cfg.py
     volumes:
       - /export/home/yanghaibo1/docker-compose/workshop:/code
       - /var/run/docker.sock:/var/run/docker.sock
     ports:
-      - 8080
+      - 8080:8080
+
+  celery:
+    container_name: celery
+    image: ai-image.jd.com/neuhub-pai/aves2:jd-dev-e72a87
+    restart: always
+    command: bash /src/aves2/startup/start_celery.sh /src/aves2/startup/setup_env-demo.sh
 
 # docker network create aves2-sys --attachable --driver overlay --scope swarm
 networks:
